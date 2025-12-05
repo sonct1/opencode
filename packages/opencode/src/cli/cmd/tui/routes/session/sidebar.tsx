@@ -1,5 +1,5 @@
 import { useSync } from "@tui/context/sync"
-import { createMemo, For, Show, Switch, Match } from "solid-js"
+import { createMemo, createSignal, For, Show, Switch, Match } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../../context/theme"
 import { Locale } from "@/util/locale"
@@ -9,6 +9,8 @@ import { Global } from "@/global"
 import { Installation } from "@/installation"
 import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
+import { Editor } from "../../util/editor"
+import type { MouseEvent } from "@opentui/core"
 
 export function Sidebar(props: { sessionID: string }) {
   const sync = useSync()
@@ -209,30 +211,7 @@ export function Sidebar(props: { sessionID: string }) {
                 </box>
                 <Show when={diff().length <= 2 || expanded.diff}>
                   <For each={diff() || []}>
-                    {(item) => {
-                      const file = createMemo(() => {
-                        const splits = item.file.split(path.sep).filter(Boolean)
-                        const last = splits.at(-1)!
-                        const rest = splits.slice(0, -1).join(path.sep)
-                        if (!rest) return last
-                        return Locale.truncateMiddle(rest, 30 - last.length) + "/" + last
-                      })
-                      return (
-                        <box flexDirection="row" gap={1} justifyContent="space-between">
-                          <text fg={theme.textMuted} wrapMode="char">
-                            {file()}
-                          </text>
-                          <box flexDirection="row" gap={1} flexShrink={0}>
-                            <Show when={item.additions}>
-                              <text fg={theme.diffAdded}>+{item.additions}</text>
-                            </Show>
-                            <Show when={item.deletions}>
-                              <text fg={theme.diffRemoved}>-{item.deletions}</text>
-                            </Show>
-                          </box>
-                        </box>
-                      )
-                    }}
+                    {(item) => <DiffFileItem file={item.file} additions={item.additions} deletions={item.deletions} />}
                   </For>
                 </Show>
               </box>
@@ -278,5 +257,53 @@ export function Sidebar(props: { sessionID: string }) {
         </box>
       </box>
     </Show>
+  )
+}
+
+function DiffFileItem(props: { file: string; additions: number; deletions: number }) {
+  const { theme } = useTheme()
+  const [hover, setHover] = createSignal(false)
+
+  const displayFile = createMemo(() => {
+    const splits = props.file.split(path.sep).filter(Boolean)
+    const last = splits.at(-1)!
+    const rest = splits.slice(0, -1).join(path.sep)
+    if (!rest) return last
+    return Locale.truncateMiddle(rest, 30 - last.length) + "/" + last
+  })
+
+  const handleClick = (evt: MouseEvent & { ctrl?: boolean }) => {
+    if (!evt.ctrl) return
+    const absolutePath = path.isAbsolute(props.file) ? props.file : path.join(process.cwd(), props.file)
+    Editor.openFileInBackground(absolutePath)
+  }
+
+  return (
+    <box
+      onMouseOver={() => setHover(true)}
+      onMouseOut={() => setHover(false)}
+      onMouseUp={(evt) => handleClick(evt)}
+    >
+      <box flexDirection="row" gap={1} justifyContent="space-between">
+        <text fg={theme.textMuted} wrapMode="char">
+          <Show when={hover()} fallback={<>{displayFile()}</>}>
+            <span style={{ underline: true }}>{displayFile()}</span>
+          </Show>
+        </text>
+        <box flexDirection="row" gap={1} flexShrink={0}>
+          <Show when={props.additions}>
+            <text fg={theme.diffAdded}>+{props.additions}</text>
+          </Show>
+          <Show when={props.deletions}>
+            <text fg={theme.diffRemoved}>-{props.deletions}</text>
+          </Show>
+        </box>
+      </box>
+      <Show when={hover()}>
+        <text fg={theme.textMuted}>
+          <span style={{ italic: true }}>Ctrl+click to open</span>
+        </text>
+      </Show>
+    </box>
   )
 }

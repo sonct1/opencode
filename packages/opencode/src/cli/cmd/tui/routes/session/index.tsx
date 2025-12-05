@@ -23,6 +23,7 @@ import {
   addDefaultParsers,
   MacOSScrollAccel,
   type ScrollAcceleration,
+  type MouseEvent,
 } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
 import type { AssistantMessage, Part, ToolPart, UserMessage, TextPart, ReasoningPart } from "@opencode-ai/sdk"
@@ -1365,6 +1366,40 @@ function ToolTitle(props: { fallback: string; when: any; icon: string; children:
   )
 }
 
+function FileLink(props: { filePath: string; icon: string; prefix: string; suffix?: string }) {
+  const { theme } = useTheme()
+  const [hover, setHover] = createSignal(false)
+
+  const handleClick = (evt: MouseEvent & { ctrl?: boolean }) => {
+    if (!evt.ctrl) return
+    const absolutePath = path.isAbsolute(props.filePath) ? props.filePath : path.join(process.cwd(), props.filePath)
+    Editor.openFileInBackground(absolutePath)
+  }
+
+  const displayPath = normalizePath(props.filePath)
+
+  return (
+    <box
+      paddingLeft={3}
+      flexDirection="row"
+      onMouseOver={() => setHover(true)}
+      onMouseOut={() => setHover(false)}
+      onMouseUp={(evt) => handleClick(evt)}
+    >
+      <text fg={theme.textMuted}>
+        <span style={{ bold: true }}>{props.icon}</span> {props.prefix}{" "}
+        <Show when={hover()} fallback={<>{displayPath}</>}>
+          <span style={{ underline: true }}>{displayPath}</span>
+        </Show>
+        {props.suffix ? ` ${props.suffix}` : ""}
+        <Show when={hover()}>
+          <span style={{ fg: theme.textMuted, italic: true }}> (Ctrl+click to open)</span>
+        </Show>
+      </text>
+    </box>
+  )
+}
+
 ToolRegistry.register<typeof BashTool>({
   name: "bash",
   container: "block",
@@ -1394,11 +1429,21 @@ ToolRegistry.register<typeof ReadTool>({
   container: "inline",
   render(props) {
     return (
-      <>
-        <ToolTitle icon="→" fallback="Reading file..." when={props.input.filePath}>
-          Read {normalizePath(props.input.filePath!)} {input(props.input, ["filePath"])}
-        </ToolTitle>
-      </>
+      <Show
+        when={props.input.filePath}
+        fallback={
+          <ToolTitle icon="→" fallback="Reading file..." when={false}>
+            {""}
+          </ToolTitle>
+        }
+      >
+        <FileLink
+          icon="→"
+          prefix="Read"
+          filePath={props.input.filePath!}
+          suffix={input(props.input, ["filePath"])}
+        />
+      </Show>
     )
   },
 })
@@ -1417,9 +1462,16 @@ ToolRegistry.register<typeof WriteTool>({
 
     return (
       <>
-        <ToolTitle icon="←" fallback="Preparing write..." when={props.input.filePath}>
-          Wrote {props.input.filePath}
-        </ToolTitle>
+        <Show
+          when={props.input.filePath}
+          fallback={
+            <ToolTitle icon="←" fallback="Preparing write..." when={false}>
+              {""}
+            </ToolTitle>
+          }
+        >
+          <FileLink icon="←" prefix="Wrote" filePath={props.input.filePath!} />
+        </Show>
         <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
           <code
             conceal={false}
@@ -1588,12 +1640,21 @@ ToolRegistry.register<typeof EditTool>({
 
     return (
       <>
-        <ToolTitle icon="←" fallback="Preparing edit..." when={props.input.filePath}>
-          Edit {normalizePath(props.input.filePath!)}{" "}
-          {input({
-            replaceAll: props.input.replaceAll,
-          })}
-        </ToolTitle>
+        <Show
+          when={props.input.filePath}
+          fallback={
+            <ToolTitle icon="←" fallback="Preparing edit..." when={false}>
+              {""}
+            </ToolTitle>
+          }
+        >
+          <FileLink
+            icon="←"
+            prefix="Edit"
+            filePath={props.input.filePath!}
+            suffix={input({ replaceAll: props.input.replaceAll })}
+          />
+        </Show>
         <Show when={diffContent()}>
           <box paddingLeft={1}>
             <diff
