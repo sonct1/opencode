@@ -253,7 +253,15 @@ download_and_install() {
         unzip -q "$filename"
     fi
     
-    mv opencode "$INSTALL_DIR"
+    # Find the opencode binary in extracted folder
+    if [ -f "opencode" ]; then
+        mv opencode "$INSTALL_DIR"
+    elif [ -f "${APP}-${target}/bin/opencode" ]; then
+        mv "${APP}-${target}/bin/opencode" "$INSTALL_DIR"
+    else
+        echo -e "${RED}Error: Could not find opencode binary${NC}"
+        exit 1
+    fi
     chmod 755 "${INSTALL_DIR}/opencode"
     cd .. && rm -rf opencodetmp
 }

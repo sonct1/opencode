@@ -27,7 +27,22 @@ bun run build --single
 bun run build
 ```
 
-## 4. Tạo Release trên GitHub
+## 4. Nén files để upload
+
+```bash
+cd packages/opencode/dist
+
+# Linux (tar.gz)
+tar -czvf opencode-linux-x64.tar.gz opencode-linux-x64
+tar -czvf opencode-linux-arm64.tar.gz opencode-linux-arm64
+
+# macOS/Windows (zip)
+zip -r opencode-darwin-x64.zip opencode-darwin-x64
+zip -r opencode-darwin-arm64.zip opencode-darwin-arm64
+zip -r opencode-windows-x64.zip opencode-windows-x64
+```
+
+## 5. Tạo Release trên GitHub
 
 1. Vào https://github.com/sonct1/opencode/releases/new
 2. Chọn tag vừa tạo
