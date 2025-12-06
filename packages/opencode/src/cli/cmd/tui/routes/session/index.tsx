@@ -1366,9 +1366,11 @@ function ToolTitle(props: { fallback: string; when: any; icon: string; children:
   )
 }
 
+// Global hover state to avoid per-component signals
+const [globalHoveredFile, setGlobalHoveredFile] = createSignal<string | null>(null)
+
 function FileLink(props: { filePath: string; icon: string; prefix: string; suffix?: string }) {
   const { theme } = useTheme()
-  const [hover, setHover] = createSignal(false)
 
   const handleClick = (evt: MouseEvent & { ctrl?: boolean }) => {
     if (!evt.ctrl) return
@@ -1377,13 +1379,14 @@ function FileLink(props: { filePath: string; icon: string; prefix: string; suffi
   }
 
   const displayPath = normalizePath(props.filePath)
+  const hover = createMemo(() => globalHoveredFile() === props.filePath)
 
   return (
     <box
       paddingLeft={3}
       flexDirection="row"
-      onMouseOver={() => setHover(true)}
-      onMouseOut={() => setHover(false)}
+      onMouseOver={() => setGlobalHoveredFile(props.filePath)}
+      onMouseOut={() => setGlobalHoveredFile((prev) => (prev === props.filePath ? null : prev))}
       onMouseUp={(evt) => handleClick(evt)}
     >
       <text fg={theme.textMuted}>

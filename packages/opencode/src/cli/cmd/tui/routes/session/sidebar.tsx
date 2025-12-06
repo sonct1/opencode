@@ -260,9 +260,12 @@ export function Sidebar(props: { sessionID: string }) {
   )
 }
 
+// Global hover state for sidebar diff items
+const [globalHoveredDiffFile, setGlobalHoveredDiffFile] = createSignal<string | null>(null)
+
 function DiffFileItem(props: { file: string; additions: number; deletions: number }) {
   const { theme } = useTheme()
-  const [hover, setHover] = createSignal(false)
+  const hover = createMemo(() => globalHoveredDiffFile() === props.file)
 
   const displayFile = createMemo(() => {
     const splits = props.file.split(path.sep).filter(Boolean)
@@ -280,8 +283,8 @@ function DiffFileItem(props: { file: string; additions: number; deletions: numbe
 
   return (
     <box
-      onMouseOver={() => setHover(true)}
-      onMouseOut={() => setHover(false)}
+      onMouseOver={() => setGlobalHoveredDiffFile(props.file)}
+      onMouseOut={() => setGlobalHoveredDiffFile((prev) => (prev === props.file ? null : prev))}
       onMouseUp={(evt) => handleClick(evt)}
     >
       <box flexDirection="row" gap={1} justifyContent="space-between">
