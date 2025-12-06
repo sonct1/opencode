@@ -26,6 +26,15 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
 import { useToast } from "../../ui/toast"
 
+// Debounce utility function
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(() => func(...args), wait)
+  }
+}
+
 export type PromptProps = {
   sessionID?: string
   disabled?: boolean
@@ -273,11 +282,21 @@ export function Prompt(props: PromptProps) {
     if (!props.disabled) input.cursorColor = theme.text
   })
 
+  // Debounce utility function
+  function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    return (...args: Parameters<T>) => {
+      if (timeout) clearTimeout(timeout)
+      timeout = setTimeout(() => func(...args), wait)
+    }
+  }
+
   const [store, setStore] = createStore<{
     prompt: PromptInfo
     mode: "normal" | "shell"
     extmarkToPartIndex: Map<number, number>
     interrupt: number
+    lastExitPress: number
   }>({
     prompt: {
       input: "",
@@ -286,7 +305,13 @@ export function Prompt(props: PromptProps) {
     mode: "normal",
     extmarkToPartIndex: new Map(),
     interrupt: 0,
+    lastExitPress: 0,
   })
+
+  // Create debounced autocomplete handler
+  const debouncedAutocompleteInput = debounce((value: string) => {
+    autocomplete.onInput(value)
+  }, 300)
 
   createEffect(() => {
     input.focus()
@@ -674,7 +699,7 @@ export function Prompt(props: PromptProps) {
               onContentChange={() => {
                 const value = input.plainText
                 setStore("prompt", "input", value)
-                autocomplete.onInput(value)
+                debouncedAutocompleteInput(value)
                 syncExtmarksWithPromptParts()
               }}
               keyBindings={textareaKeybindings()}
@@ -705,7 +730,20 @@ export function Prompt(props: PromptProps) {
                   return
                 }
                 if (keybind.match("app_exit", e)) {
-                  await exit()
+                  const now = Date.now()
+                  const timeSinceLastPress = now - store.lastExitPress
+                  if (timeSinceLastPress < 2000) {
+                    // Second press within 2 seconds - exit
+                    await exit(undefined, props.sessionID)
+                    return
+                  }
+                  // First press - show warning
+                  setStore("lastExitPress", now)
+                  toast.show({
+                    variant: "warning",
+                    message: "Press Ctrl+Z again to exit",
+                    duration: 2000,
+                  })
                   return
                 }
                 if (e.name === "!" && input.visualCursor.offset === 0) {
@@ -919,6 +957,9 @@ export function Prompt(props: PromptProps) {
             <box gap={2} flexDirection="row">
               <Switch>
                 <Match when={store.mode === "normal"}>
+                  <text fg={theme.text}>
+                    ! <span style={{ fg: theme.textMuted }}>shell mode</span>
+                  </text>
                   <text fg={theme.text}>
                     {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>switch agent</span>
                   </text>

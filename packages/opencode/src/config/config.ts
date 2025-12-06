@@ -400,7 +400,7 @@ export namespace Config {
   export const Keybinds = z
     .object({
       leader: z.string().optional().default("ctrl+x").describe("Leader key for keybind combinations"),
-      app_exit: z.string().optional().default("ctrl+c,ctrl+d,<leader>q").describe("Exit the application"),
+      app_exit: z.string().optional().default("ctrl+z,<leader>q").describe("Exit the application"),
       editor_open: z.string().optional().default("<leader>e").describe("Open external editor"),
       theme_list: z.string().optional().default("<leader>t").describe("List available themes"),
       sidebar_toggle: z.string().optional().default("<leader>b").describe("Toggle sidebar"),
@@ -426,7 +426,10 @@ export namespace Config {
       messages_first: z.string().optional().default("ctrl+g,home").describe("Navigate to first message"),
       messages_last: z.string().optional().default("ctrl+alt+g,end").describe("Navigate to last message"),
       messages_last_user: z.string().optional().default("none").describe("Navigate to last user message"),
+      messages_previous: z.string().optional().default("ctrl+up").describe("Navigate to previous message"),
+      messages_next: z.string().optional().default("ctrl+down").describe("Navigate to next message"),
       messages_copy: z.string().optional().default("<leader>y").describe("Copy message"),
+      copy_selected: z.string().optional().default("ctrl+c").describe("Copy selected text to clipboard"),
       messages_undo: z.string().optional().default("<leader>u").describe("Undo message"),
       messages_redo: z.string().optional().default("<leader>r").describe("Redo message"),
       messages_toggle_conceal: z
@@ -435,6 +438,8 @@ export namespace Config {
         .default("<leader>h")
         .describe("Toggle code block concealment in messages"),
       tool_details: z.string().optional().default("none").describe("Toggle tool details visibility"),
+      bash_output_toggle: z.string().optional().default("<leader>o").describe("Toggle all bash command outputs"),
+      file_content_toggle: z.string().optional().default("<leader>f").describe("Toggle all file contents (write/edit)"),
       model_list: z.string().optional().default("<leader>m").describe("List available models"),
       model_cycle_recent: z.string().optional().default("f2").describe("Next recently used model"),
       model_cycle_recent_reverse: z.string().optional().default("shift+f2").describe("Previous recently used model"),
@@ -442,7 +447,7 @@ export namespace Config {
       agent_list: z.string().optional().default("<leader>a").describe("List agents"),
       agent_cycle: z.string().optional().default("tab").describe("Next agent"),
       agent_cycle_reverse: z.string().optional().default("shift+tab").describe("Previous agent"),
-      input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
+      input_clear: z.string().optional().default("ctrl+alt+c").describe("Clear input field"),
       input_forward_delete: z.string().optional().default("ctrl+d").describe("Forward delete"),
       input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),
       input_submit: z.string().optional().default("return").describe("Submit input"),
@@ -451,7 +456,7 @@ export namespace Config {
       history_next: z.string().optional().default("down").describe("Next history item"),
       session_child_cycle: z.string().optional().default("<leader>right").describe("Next child session"),
       session_child_cycle_reverse: z.string().optional().default("<leader>left").describe("Previous child session"),
-      terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
+      // terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
     })
     .strict()
     .meta({
@@ -470,6 +475,11 @@ export namespace Config {
       .enum(["auto", "stacked"])
       .optional()
       .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
+    copy_on_select: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Automatically copy selected text to clipboard when mouse selection ends"),
   })
 
   export const Layout = z.enum(["auto", "stretch"]).meta({

@@ -1,0 +1,32 @@
+node_modules/
+package.json
+bun.lock
+
+dist/
+build/
+
+# Biến môi trường (quan trọng nhất)
+.env
+
+# SSH Private Keys
+id_rsa
+id_ed25519
+
+# SSL/TLS Keys
+*.pem
+*.key
+
+# Token upload package
+.npmrc
+.pypirc
+
+# Google/AWS Cloud credentials
+credentials.json
+
+# Lịch sử lệnh terminal
+.bash_history
+.zsh_history
+
+# File hệ thống Linux
+/etc/passwd
+/etc/shadow

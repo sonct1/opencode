@@ -6671,6 +6671,16 @@
             "default": "none",
             "type": "string"
           },
+          "messages_previous": {
+            "description": "Navigate to previous message",
+            "default": "ctrl+up",
+            "type": "string"
+          },
+          "messages_next": {
+            "description": "Navigate to next message",
+            "default": "ctrl+down",
+            "type": "string"
+          },
           "messages_copy": {
             "description": "Copy message",
             "default": "<leader>y",
@@ -6694,6 +6704,16 @@
           "tool_details": {
             "description": "Toggle tool details visibility",
             "default": "none",
+            "type": "string"
+          },
+          "bash_output_toggle": {
+            "description": "Toggle all bash command outputs",
+            "default": "<leader>o",
+            "type": "string"
+          },
+          "file_content_toggle": {
+            "description": "Toggle all file contents (write/edit)",
+            "default": "<leader>f",
             "type": "string"
           },
           "model_list": {
@@ -7266,6 +7286,11 @@
                   "auto",
                   "stacked"
                 ]
+              },
+              "copy_on_select": {
+                "description": "Automatically copy selected text to clipboard when mouse selection ends",
+                "default": true,
+                "type": "boolean"
               }
             }
           },

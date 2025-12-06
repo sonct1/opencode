@@ -470,7 +470,9 @@ function App() {
       height={dimensions().height}
       backgroundColor={theme.background}
       onMouseUp={async () => {
-        if (Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) {
+        // Check both env flag and config option
+        const copyOnSelect = (sync.data.config.tui as { copy_on_select?: boolean } | undefined)?.copy_on_select ?? true
+        if (Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT || !copyOnSelect) {
           renderer.clearSelection()
           return
         }

@@ -87,6 +87,10 @@ const context = createContext<{
   showDetails: () => boolean
   diffWrapMode: () => "word" | "none"
   sync: ReturnType<typeof useSync>
+  collapseBashOutput: () => boolean
+  setCollapseBashOutput: (value: boolean | ((prev: boolean) => boolean)) => void
+  collapseFileContent: () => boolean
+  setCollapseFileContent: (value: boolean | ((prev: boolean) => boolean)) => void
 }>()
 
 function use() {
@@ -123,6 +127,8 @@ export function Session() {
   const [showDetails, setShowDetails] = createSignal(kv.get("tool_details_visibility", true))
   const [showScrollbar, setShowScrollbar] = createSignal(kv.get("scrollbar_visible", false))
   const [diffWrapMode, setDiffWrapMode] = createSignal<"word" | "none">("word")
+  const [collapseBashOutput, setCollapseBashOutput] = createSignal(kv.get("bash_output_collapsed", false))
+  const [collapseFileContent, setCollapseFileContent] = createSignal(kv.get("file_content_collapsed", false))
 
   const wide = createMemo(() => dimensions().width > 120)
   const sidebarVisible = createMemo(() => {
@@ -485,6 +491,34 @@ export function Session() {
       },
     },
     {
+      title: collapseBashOutput() ? "Expand all bash outputs" : "Collapse all bash outputs",
+      value: "session.toggle.bash_output",
+      keybind: "bash_output_toggle",
+      category: "Session",
+      onSelect: (dialog) => {
+        setCollapseBashOutput((prev) => {
+          const next = !prev
+          kv.set("bash_output_collapsed", next)
+          return next
+        })
+        dialog.clear()
+      },
+    },
+    {
+      title: collapseFileContent() ? "Expand all file contents" : "Collapse all file contents",
+      value: "session.toggle.file_content",
+      keybind: "file_content_toggle",
+      category: "Session",
+      onSelect: (dialog) => {
+        setCollapseFileContent((prev) => {
+          const next = !prev
+          kv.set("file_content_collapsed", next)
+          return next
+        })
+        dialog.clear()
+      },
+    },
+    {
       title: showDetails() ? "Hide tool details" : "Show tool details",
       value: "session.toggle.actions",
       keybind: "tool_details",
@@ -577,6 +611,65 @@ export function Session() {
       },
     },
     {
+      title: "Previous message",
+      value: "session.messages.previous",
+      keybind: "messages_previous",
+      category: "Session",
+      disabled: true,
+      onSelect: () => {
+        // Only user messages have IDs in the DOM
+        const userMessages = messages().filter((m) => m.role === "user")
+        if (!userMessages.length) return
+
+        const children = scroll.getChildren()
+
+        // Find the first message that is above or at the current scroll position
+        for (let i = userMessages.length - 1; i >= 0; i--) {
+          const child = children.find((c) => c.id === userMessages[i].id)
+          if (child && child.y < scroll.y) {
+            scroll.scrollBy(child.y - scroll.y - 1)
+            return
+          }
+        }
+
+        // Already at top, scroll to beginning
+        scroll.scrollTo(0)
+      },
+    },
+    {
+      title: "Next message",
+      value: "session.messages.next",
+      keybind: "messages_next",
+      category: "Session",
+      disabled: true,
+      onSelect: () => {
+        // Only user messages have IDs in the DOM
+        const userMessages = messages().filter((m) => m.role === "user")
+        if (!userMessages.length) return
+
+        const children = scroll.getChildren()
+
+        // Find current message index based on scroll position
+        let currentIndex = -1
+        for (let i = 0; i < userMessages.length; i++) {
+          const child = children.find((c) => c.id === userMessages[i].id)
+          if (child && child.y - scroll.y <= 1) {
+            currentIndex = i
+          }
+        }
+
+        // Go to next user message
+        const targetIndex = currentIndex + 1
+        if (targetIndex < userMessages.length) {
+          const child = children.find((c) => c.id === userMessages[targetIndex].id)
+          if (child) scroll.scrollBy(child.y - scroll.y - 1)
+        } else {
+          // No more messages, scroll to bottom
+          scroll.scrollTo(scroll.scrollHeight)
+        }
+      },
+    },
+    {
       title: "Jump to last user message",
       value: "session.messages_last_user",
       keybind: "messages_last_user",
@@ -648,6 +741,30 @@ export function Session() {
         renderer.writeOut(finalOsc52)
         Clipboard.copy(text)
           .then(() => toast.show({ message: "Message copied to clipboard!", variant: "success" }))
+          .catch(() => toast.show({ message: "Failed to copy to clipboard", variant: "error" }))
+        dialog.clear()
+      },
+    },
+    {
+      title: "Copy selected text",
+      value: "copy.selected",
+      keybind: "copy_selected",
+      category: "Session",
+      onSelect: async (dialog) => {
+        const text = renderer.getSelection()?.getSelectedText()
+        if (!text || text.length === 0) {
+          toast.show({ message: "No text selected", variant: "error" })
+          dialog.clear()
+          return
+        }
+
+        const base64 = Buffer.from(text).toString("base64")
+        const osc52 = `\x1b]52;c;${base64}\x07`
+        const finalOsc52 = process.env["TMUX"] ? `\x1bPtmux;\x1b${osc52}\x1b\\` : osc52
+        /* @ts-expect-error */
+        renderer.writeOut(finalOsc52)
+        await Clipboard.copy(text)
+          .then(() => toast.show({ message: "Copied to clipboard!", variant: "success" }))
           .catch(() => toast.show({ message: "Failed to copy to clipboard", variant: "error" }))
         dialog.clear()
       },
@@ -846,6 +963,10 @@ export function Session() {
         showDetails,
         diffWrapMode,
         sync,
+        collapseBashOutput,
+        setCollapseBashOutput,
+        collapseFileContent,
+        setCollapseFileContent,
       }}
     >
       <box flexDirection="row">
@@ -1410,9 +1531,7 @@ function FileLink(props: { filePath: string; icon: string; prefix: string; suffi
           <span style={{ underline: true }}>{displayPath}</span>
         </Show>
         {props.suffix ? ` ${props.suffix}` : ""}
-        <Show when={hover()}>
-          <span style={{ fg: theme.textMuted, italic: true }}> (Ctrl+click to open)</span>
-        </Show>
+
       </text>
     </box>
   )
@@ -1424,15 +1543,39 @@ ToolRegistry.register<typeof BashTool>({
   render(props) {
     const output = createMemo(() => stripAnsi(props.metadata.output?.trim() ?? ""))
     const { theme } = useTheme()
+    const ctx = use()
+    const [localCollapsed, setLocalCollapsed] = createSignal<boolean | null>(null)
+    const collapsed = createMemo(() => localCollapsed() ?? ctx.collapseBashOutput())
+    const [hover, setHover] = createSignal(false)
+
+    const toggleCollapse = () => {
+      setLocalCollapsed((prev) => {
+        if (prev === null) return !ctx.collapseBashOutput()
+        return !prev
+      })
+    }
+
     return (
       <>
         <ToolTitle icon="#" fallback="Writing command..." when={props.input.command}>
           {props.input.description || "Shell"}
         </ToolTitle>
         <Show when={props.input.command}>
-          <text fg={theme.text}>$ {props.input.command}</text>
+          <box
+            flexDirection="row"
+            onMouseOver={() => setHover(true)}
+            onMouseOut={() => setHover(false)}
+            onMouseUp={toggleCollapse}
+          >
+            <text fg={theme.text}>
+              <Show when={output()}>
+                <span style={{ fg: hover() ? theme.text : theme.textMuted }}>{collapsed() ? "▶" : "▼"} </span>
+              </Show>
+              $ {props.input.command}
+            </text>
+          </box>
         </Show>
-        <Show when={output()}>
+        <Show when={output() && !collapsed()}>
           <box>
             <text fg={theme.text}>{output()}</text>
           </box>
@@ -1471,6 +1614,18 @@ ToolRegistry.register<typeof WriteTool>({
   container: "block",
   render(props) {
     const { theme, syntax } = useTheme()
+    const ctx = use()
+    const [localCollapsed, setLocalCollapsed] = createSignal<boolean | null>(null)
+    const collapsed = createMemo(() => localCollapsed() ?? ctx.collapseFileContent())
+    const [hover, setHover] = createSignal(false)
+
+    const toggleCollapse = () => {
+      setLocalCollapsed((prev) => {
+        if (prev === null) return !ctx.collapseFileContent()
+        return !prev
+      })
+    }
+
     const code = createMemo(() => {
       if (!props.input.content) return ""
       return props.input.content
@@ -1488,17 +1643,32 @@ ToolRegistry.register<typeof WriteTool>({
             </ToolTitle>
           }
         >
-          <FileLink icon="←" prefix="Wrote" filePath={props.input.filePath!} />
+          <box
+            flexDirection="row"
+            onMouseOver={() => setHover(true)}
+            onMouseOut={() => setHover(false)}
+            onMouseUp={toggleCollapse}
+            paddingLeft={3}
+          >
+            <text fg={theme.textMuted}>
+              <Show when={code()}>
+                <span style={{ fg: hover() ? theme.text : theme.textMuted }}>{collapsed() ? "▶" : "▼"} </span>
+              </Show>
+              <span style={{ bold: true }}>←</span> Wrote {normalizePath(props.input.filePath!)}
+            </text>
+          </box>
         </Show>
-        <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
-          <code
-            conceal={false}
-            fg={theme.text}
-            filetype={filetype(props.input.filePath!)}
-            syntaxStyle={syntax()}
-            content={code()}
-          />
-        </line_number>
+        <Show when={code() && !collapsed()}>
+          <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
+            <code
+              conceal={false}
+              fg={theme.text}
+              filetype={filetype(props.input.filePath!)}
+              syntaxStyle={syntax()}
+              content={code()}
+            />
+          </line_number>
+        </Show>
         <Show when={diagnostics().length}>
           <For each={diagnostics()}>
             {(diagnostic) => (
@@ -1639,6 +1809,16 @@ ToolRegistry.register<typeof EditTool>({
   render(props) {
     const ctx = use()
     const { theme, syntax } = useTheme()
+    const [localCollapsed, setLocalCollapsed] = createSignal<boolean | null>(null)
+    const collapsed = createMemo(() => localCollapsed() ?? ctx.collapseFileContent())
+    const [hover, setHover] = createSignal(false)
+
+    const toggleCollapse = () => {
+      setLocalCollapsed((prev) => {
+        if (prev === null) return !ctx.collapseFileContent()
+        return !prev
+      })
+    }
 
     const view = createMemo(() => {
       const diffStyle = ctx.sync.data.config.tui?.diff_style
@@ -1666,14 +1846,23 @@ ToolRegistry.register<typeof EditTool>({
             </ToolTitle>
           }
         >
-          <FileLink
-            icon="←"
-            prefix="Edit"
-            filePath={props.input.filePath!}
-            suffix={input({ replaceAll: props.input.replaceAll })}
-          />
+          <box
+            flexDirection="row"
+            onMouseOver={() => setHover(true)}
+            onMouseOut={() => setHover(false)}
+            onMouseUp={toggleCollapse}
+            paddingLeft={3}
+          >
+            <text fg={theme.textMuted}>
+              <Show when={diffContent()}>
+                <span style={{ fg: hover() ? theme.text : theme.textMuted }}>{collapsed() ? "▶" : "▼"} </span>
+              </Show>
+              <span style={{ bold: true }}>←</span> Edit {normalizePath(props.input.filePath!)}{" "}
+              {input({ replaceAll: props.input.replaceAll })}
+            </text>
+          </box>
         </Show>
-        <Show when={diffContent()}>
+        <Show when={diffContent() && !collapsed()}>
           <box paddingLeft={1}>
             <diff
               diff={diffContent()}

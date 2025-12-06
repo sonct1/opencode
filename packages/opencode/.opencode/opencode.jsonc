@@ -1,0 +1,147 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // "plugin": [
+  // "opencode-openai-codex-auth",
+  // "opencode-gemini-auth"
+  // ],
+  "snapshot": true, // enable 
+  "tui": {
+    "scroll_speed": 3,
+    "copy_on_select": false // tắt auto copy khi select
+  },
+  // "theme": "catppuccin", // giao diện màu Catppuccin
+  "mcp": { // https://opencode.ai/docs/mcp-servers
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-6e80cc09-0b57-4d7f-82ae-9d9cca245d6b"
+      },
+      "enabled": false,
+      "timeout": 30000 // Tăng từ 10s lên 30s hoặc 60s
+    },
+    "CodeGraphContext": {
+      "type": "local",
+      "command": [
+        "cgc",
+        "start"
+      ],
+      "enabled": false,
+      "environment": {
+        "NEO4J_URI": "neo4j://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "12345678"
+      },
+    },
+    "serena": {
+      "type": "remote",
+      "url": "http://localhost:9121/mcp",
+      "enabled": false,
+      "timeout": 30000 // Tăng từ 10s lên 30s hoặc 60s
+    }
+  },
+  "permission": { // https://opencode.ai/docs/permissions
+    "webfetch": "ask",
+    "doom_loop": "ask", // xảy ra khi cùng một công cụ được gọi 3 lần liên tiếp với các đối số giống hệt nhau
+    "bash": {
+      "go *": "allow", // cho phép chạy go với mọi tham số
+      "java *": "allow",
+      "git push": "ask",
+      "git status": "allow",
+      "git diff": "allow",
+      "npm run build": "allow",
+      "ls": "allow",
+      "pwd": "allow",
+      "rm -rf /": "deny",
+      "rm -rf /*": "deny",
+      "rm -rf .": "deny",
+      "rm -rf ~": "deny",
+      "rm -rf ~/*": "deny",
+      "rm -rf $HOME": "deny",
+      "rm -r /": "deny",
+      "rm -r /*": "deny",
+      "rm -r ~": "deny",
+      "rm -r ~/*": "deny",
+      "mkfs": "deny",
+      "mkfs.ext4": "deny",
+      "mkfs.ext3": "deny",
+      "mkfs.vfat": "deny",
+      "mkfs.ntfs": "deny",
+      "dd if=/dev/zero of=/dev": "deny",
+      "dd of=/dev": "deny",
+      "shutdown": "deny",
+      "reboot": "deny",
+      "halt": "deny",
+      "poweroff": "deny",
+      "init 0": "deny",
+      "init 6": "deny",
+      ":(){ :|: & };:": "deny",
+      ":() { :|:& };:": "deny",
+      "chmod -R 777 /": "deny",
+      "chmod -R 000 /": "deny",
+      "chown -R": "deny",
+      "format": "deny",
+      "powershell Remove-Item -Recurse -Force": "deny"
+    }
+  },
+  "provider": { // https://opencode.ai/docs/providers
+    "cliproxy-google": {
+      "name": "CLIProxyGoogle",
+      "npm": "@ai-sdk/openai",
+      "options": {
+        "baseURL": "http://localhost:8317/v1",
+        "apiKey": "sk-w2MQnhPCKz92IQmb3JyZMCRyHkWgKUImHYMaU7l5Xblp3"
+      },
+      "models": {
+        "gemini-2.5-flash": {
+          "name": "gemini-2.5-flash",
+        },
+        "gemini-3-pro-preview": {
+          "name": "gemini-3-pro-preview"
+        },
+        "gemini-2.5-pro": {
+          "name": "gemini-2.5-pro",
+        },
+        "gemini-3-pro-image-preview": {
+          "name": "gemini-3-pro-image-preview"
+        },
+        "gemini-2.5-flash-image": {
+          "name": "gemini-2.5-flash-image"
+        }
+      },
+    },
+    "cliproxy-other": {
+      "name": "CLIProxyOther",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:8317/v1",
+        "headers": {
+          "Authorization": "Bearer sk-w2MQnhPCKz92IQmb3JyZMCRyHkWgKUImHYMaU7l5Xblp3"
+        }
+      },
+      "models": {
+        "qwen3-coder-plus": {
+          "name": "qwen3-coder-plus",
+        },
+        "claude-opus-4-1-20250805": {
+          "name": "claude-opus-4-1-20250805"
+        },
+        "gpt-5.1-codex": {
+          "name": "gpt-5.1-codex"
+        },
+        "gemini-3-pro-preview": {
+          "name": "gemini-3-pro-preview"
+        },
+        "glm-4.6": {
+          "name": "glm-4.6"
+        },
+        "gemini-claude-sonnet-4-5": {
+          "name": "gemini-claude-sonnet-4-5"
+        }
+      },
+    },
+  },
+  "small_model": "github-copilot/claude-haiku-4.5", // doc, nhỏ, nhanh, lightweight tasks like title generation
+  "model": "zai-coding-plan/glm-4.6", // model mặc định khi không chỉ định
+  "autoupdate": false // tắt tự động cập nhật
+}

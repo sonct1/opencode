@@ -302,11 +302,7 @@ function DiffFileItem(props: { file: string; additions: number; deletions: numbe
           </Show>
         </box>
       </box>
-      <Show when={hover()}>
-        <text fg={theme.textMuted}>
-          <span style={{ italic: true }}>Ctrl+click to open</span>
-        </text>
-      </Show>
+
     </box>
   )
 }
