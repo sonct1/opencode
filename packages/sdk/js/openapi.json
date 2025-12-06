@@ -6733,7 +6733,7 @@
           },
           "command_list": {
             "description": "List available commands",
-            "default": "ctrl+p",
+            "default": "<leader>p",
             "type": "string"
           },
           "agent_list": {

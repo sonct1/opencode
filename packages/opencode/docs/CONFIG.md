@@ -65,7 +65,7 @@
 | `model_list` | `<leader>m` | Danh sách models |
 | `model_cycle_recent` | `f2` | Model gần đây tiếp theo |
 | `model_cycle_recent_reverse` | `shift+f2` | Model gần đây trước đó |
-| `command_list` | `ctrl+p` | Danh sách commands |
+| `command_list` | `<leader>p` | Danh sách commands |
 | `agent_list` | `<leader>a` | Danh sách agents |
 | `agent_cycle` | `tab` | Agent tiếp theo |
 | `agent_cycle_reverse` | `shift+tab` | Agent trước đó |
