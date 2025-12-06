@@ -70,6 +70,7 @@
     "@pierre/precision-diffs": "catalog:",
     "@solid-primitives/event-bus": "1.1.2",
     "@standard-schema/spec": "1.0.0",
+    "@withfig/autocomplete": "2.692.3",
     "@zip.js/zip.js": "2.7.62",
     "ai": "catalog:",
     "bun-pty": "0.4.2",

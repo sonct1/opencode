@@ -12,6 +12,7 @@ import { createStore, produce } from "solid-js/store"
 import { useKeybind } from "@tui/context/keybind"
 import { usePromptHistory, type PromptInfo } from "./history"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
+import { getSuggestion, addToHistory, getPathCompletion } from "./shell-history"
 import { useCommandDialog } from "../dialog-command"
 import { useRenderer } from "@opentui/solid"
 import { Editor } from "@tui/util/editor"
@@ -57,6 +58,7 @@ export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
   let anchor: BoxRenderable
   let autocomplete: AutocompleteRef
+  const [shellSuggestion, setShellSuggestion] = createSignal<string | null>(null)
 
   const keybind = useKeybind()
   const local = useLocal()
@@ -249,6 +251,10 @@ export function Prompt(props: PromptProps) {
           // TODO: this should be its own command
           if (store.mode === "shell") {
             setStore("mode", "normal")
+            setShellSuggestion(null)
+            command.keybinds(true)
+            input.clear()
+            setStore("prompt", { input: "", parts: [] })
             return
           }
           if (!props.sessionID) return
@@ -467,6 +473,7 @@ export function Prompt(props: PromptProps) {
     const nonTextParts = store.prompt.parts.filter((part) => part.type !== "text")
 
     if (store.mode === "shell") {
+      addToHistory(inputText)
       sdk.client.session.shell({
         path: {
           id: sessionID,
@@ -481,6 +488,8 @@ export function Prompt(props: PromptProps) {
         },
       })
       setStore("mode", "normal")
+      setShellSuggestion(null)
+      command.keybinds(true)
     } else if (
       inputText.startsWith("/") &&
       iife(() => {
@@ -701,6 +710,9 @@ export function Prompt(props: PromptProps) {
                 setStore("prompt", "input", value)
                 debouncedAutocompleteInput(value)
                 syncExtmarksWithPromptParts()
+                if (store.mode === "shell") {
+                  setShellSuggestion(getSuggestion(value))
+                }
               }}
               keyBindings={textareaKeybindings()}
               onKeyDown={async (e) => {
@@ -748,14 +760,59 @@ export function Prompt(props: PromptProps) {
                 }
                 if (e.name === "!" && input.visualCursor.offset === 0) {
                   setStore("mode", "shell")
+                  command.keybinds(false)
                   e.preventDefault()
                   return
                 }
                 if (store.mode === "shell") {
                   if ((e.name === "backspace" && input.visualCursor.offset === 0) || e.name === "escape") {
                     setStore("mode", "normal")
+                    setShellSuggestion(null)
+                    command.keybinds(true)
+                    input.clear()
+                    setStore("prompt", { input: "", parts: [] })
                     e.preventDefault()
                     return
+                  }
+                  if (e.name === "tab") {
+                    const pathCompletion = getPathCompletion(input.plainText)
+                    if (pathCompletion) {
+                      input.insertText(pathCompletion)
+                      setShellSuggestion(getSuggestion(input.plainText))
+                      e.preventDefault()
+                      return
+                    }
+                    const suggestion = shellSuggestion()
+                    if (suggestion) {
+                      input.insertText(suggestion)
+                      setShellSuggestion(null)
+                      e.preventDefault()
+                      return
+                    }
+                  }
+                  const suggestion = shellSuggestion()
+                  if (suggestion) {
+                    if (e.name === "right" && input.cursorOffset === input.plainText.length) {
+                      input.insertText(suggestion)
+                      setShellSuggestion(null)
+                      e.preventDefault()
+                      return
+                    }
+                    if (e.name === "right" && e.ctrl && input.cursorOffset === input.plainText.length) {
+                      const nextWord = suggestion.match(/^\S*\s*/)
+                      if (nextWord) {
+                        input.insertText(nextWord[0])
+                        setShellSuggestion(suggestion.slice(nextWord[0].length) || null)
+                      }
+                      e.preventDefault()
+                      return
+                    }
+                    if (e.name === "end") {
+                      input.insertText(suggestion)
+                      setShellSuggestion(null)
+                      e.preventDefault()
+                      return
+                    }
                   }
                 }
                 if (store.mode === "normal") autocomplete.onKeyDown(e)
@@ -867,6 +924,11 @@ export function Prompt(props: PromptProps) {
                   </text>
                 </box>
               </Show>
+              <Show when={store.mode === "shell" && shellSuggestion()}>
+                <text fg={theme.textMuted} wrapMode="none">
+                  {shellSuggestion()} <span style={{ fg: theme.text }}>→</span>
+                </text>
+              </Show>
             </box>
           </box>
         </box>
@@ -969,7 +1031,13 @@ export function Prompt(props: PromptProps) {
                 </Match>
                 <Match when={store.mode === "shell"}>
                   <text fg={theme.text}>
-                    esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
+                    tab <span style={{ fg: theme.textMuted }}>complete</span>
+                  </text>
+                  <text fg={theme.text}>
+                    → <span style={{ fg: theme.textMuted }}>accept</span>
+                  </text>
+                  <text fg={theme.text}>
+                    esc <span style={{ fg: theme.textMuted }}>exit</span>
                   </text>
                 </Match>
               </Switch>
