@@ -373,6 +373,46 @@ Các flags chỉ có thể cấu hình qua environment variable, chưa hỗ tr�
 
 ---
 
+## Storage & Cache Locations
+
+OpenCode sử dụng [XDG Base Directory](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) để lưu trữ dữ liệu.
+
+### Các thư mục lưu trữ
+
+| Thư mục | Đường dẫn mặc định | Mô tả |
+|---------|-------------------|-------|
+| Data | `~/.local/share/opencode/` | Dữ liệu chính (storage, bin) |
+| Storage | `~/.local/share/opencode/storage/` | Sessions, messages, parts |
+| Logs | `~/.local/share/opencode/log/` | Log files |
+| Cache | `~/.cache/opencode/` | Cache (LSP, parsers, etc.) |
+| Config | `~/.config/opencode/` | Config files |
+| State | `~/.local/state/opencode/` | Runtime state |
+
+### Xóa cache và dữ liệu
+
+```bash
+# Xóa chỉ cache (LSP, parsers sẽ được download lại)
+rm -rf ~/.cache/opencode
+
+# Xóa toàn bộ dữ liệu (sessions, logs, cache)
+rm -rf ~/.local/share/opencode
+rm -rf ~/.cache/opencode
+
+# Xóa tất cả (bao gồm cả config)
+rm -rf ~/.local/share/opencode
+rm -rf ~/.cache/opencode
+rm -rf ~/.config/opencode
+rm -rf ~/.local/state/opencode
+```
+
+### Log files
+
+- Log files được lưu với format: `YYYY-MM-DDTHHMMSS.log`
+- OpenCode tự động giữ lại 10 log files gần nhất
+- Dev mode sử dụng file `dev.log`
+
+---
+
 ## File Config
 
 Config được load theo thứ tự (merge từ trên xuống):
