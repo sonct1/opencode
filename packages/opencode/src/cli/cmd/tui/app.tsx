@@ -2,7 +2,7 @@ import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentu
 import { Clipboard } from "@tui/util/clipboard"
 import { TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
-import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
+import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on, onCleanup } from "solid-js"
 import { Installation } from "@/installation"
 import { Global } from "@/global"
 import { Flag } from "@/flag/flag"
@@ -33,6 +33,7 @@ import { Provider } from "@/provider/provider"
 import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
+import { Logo } from "./component/logo"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -490,7 +491,7 @@ function App() {
         }
       }}
     >
-      <Switch>
+      <Switch fallback={<LoadingScreen />}>
         <Match when={route.data.type === "home"}>
           <Home />
         </Match>
@@ -498,6 +499,29 @@ function App() {
           <Session />
         </Match>
       </Switch>
+    </box>
+  )
+}
+
+function LoadingScreen() {
+  const { theme } = useTheme()
+  const loadingFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+  const [loadingIndex, setLoadingIndex] = createSignal(0)
+
+  onMount(() => {
+    const interval = setInterval(() => {
+      setLoadingIndex((i) => (i + 1) % loadingFrames.length)
+    }, 80)
+    onCleanup(() => clearInterval(interval))
+  })
+
+  return (
+    <box flexGrow={1} justifyContent="center" alignItems="center" gap={1}>
+      <Logo />
+      <box paddingTop={2} flexDirection="row" alignItems="center" gap={1}>
+        <text fg={theme.accent}>{loadingFrames[loadingIndex()]}</text>
+        <text fg={theme.textMuted}>Loading...</text>
+      </box>
     </box>
   )
 }
