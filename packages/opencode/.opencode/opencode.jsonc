@@ -38,6 +38,11 @@
       "url": "http://localhost:9121/mcp",
       "enabled": false,
       "timeout": 30000 // Tăng từ 10s lên 30s hoặc 60s
+    },
+    "augment-context-engine": {
+      "type": "local",
+      "command": ["auggie", "--mcp"],
+      "enabled": true
     }
   },
   "permission": { // https://opencode.ai/docs/permissions
