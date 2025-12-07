@@ -54,6 +54,8 @@ export type PromptRef = {
   focus(): void
 }
 
+const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
+
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
   let anchor: BoxRenderable
@@ -115,6 +117,79 @@ export function Prompt(props: PromptProps) {
 
   command.register(() => {
     return [
+      {
+        title: "Clear prompt",
+        value: "prompt.clear",
+        category: "Prompt",
+        disabled: true,
+        onSelect: (dialog) => {
+          input.extmarks.clear()
+          input.clear()
+          dialog.clear()
+        },
+      },
+      {
+        title: "Submit prompt",
+        value: "prompt.submit",
+        disabled: true,
+        keybind: "input_submit",
+        category: "Prompt",
+        onSelect: (dialog) => {
+          if (!input.focused) return
+          submit()
+          dialog.clear()
+        },
+      },
+      {
+        title: "Paste",
+        value: "prompt.paste",
+        disabled: true,
+        keybind: "input_paste",
+        category: "Prompt",
+        onSelect: async () => {
+          const content = await Clipboard.read()
+          if (content?.mime.startsWith("image/")) {
+            await pasteImage({
+              filename: "clipboard",
+              mime: content.mime,
+              content: content.data,
+            })
+          }
+        },
+      },
+      {
+        title: "Interrupt session",
+        value: "session.interrupt",
+        keybind: "session_interrupt",
+        disabled: status().type === "idle",
+        category: "Session",
+        onSelect: (dialog) => {
+          if (autocomplete.visible) return
+          if (!input.focused) return
+          // TODO: this should be its own command
+          if (store.mode === "shell") {
+            setStore("mode", "normal")
+            return
+          }
+          if (!props.sessionID) return
+
+          setStore("interrupt", store.interrupt + 1)
+
+          setTimeout(() => {
+            setStore("interrupt", 0)
+          }, 5000)
+
+          if (store.interrupt >= 2) {
+            sdk.client.session.abort({
+              path: {
+                id: props.sessionID,
+              },
+            })
+            setStore("interrupt", 0)
+          }
+          dialog.clear()
+        },
+      },
       {
         title: "Open editor",
         category: "Session",
@@ -303,7 +378,9 @@ export function Prompt(props: PromptProps) {
     extmarkToPartIndex: Map<number, number>
     interrupt: number
     lastExitPress: number
+    placeholder: number
   }>({
+    placeholder: Math.floor(Math.random() * PLACEHOLDERS.length),
     prompt: {
       input: "",
       parts: [],
@@ -700,7 +777,7 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
           >
             <textarea
-              placeholder={props.sessionID ? undefined : "Build anything..."}
+              placeholder={props.sessionID ? undefined : `Ask anything... "${PLACEHOLDERS[store.placeholder]}"`}
               textColor={theme.text}
               focusedTextColor={theme.text}
               minHeight={1}
