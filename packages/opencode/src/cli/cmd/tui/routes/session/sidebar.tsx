@@ -231,6 +231,27 @@ export function Sidebar(props: { sessionID: string }) {
                   <For each={childSessions()}>
                     {(childSession) => {
                       const isCurrentSession = createMemo(() => childSession.id === session().id)
+                      const status = createMemo(() => sync.data.session_status[childSession.id] ?? { type: "idle" })
+                      const statusIcon = createMemo(() => {
+                        switch (status().type) {
+                          case "busy":
+                            return "●"
+                          case "retry":
+                            return "↻"
+                          default:
+                            return isCurrentSession() ? "▶" : "○"
+                        }
+                      })
+                      const statusColor = createMemo(() => {
+                        switch (status().type) {
+                          case "busy":
+                            return theme.warning
+                          case "retry":
+                            return theme.error
+                          default:
+                            return isCurrentSession() ? theme.accent : theme.success
+                        }
+                      })
                       return (
                         <box
                           flexDirection="row"
@@ -240,10 +261,10 @@ export function Sidebar(props: { sessionID: string }) {
                           <text
                             flexShrink={0}
                             style={{
-                              fg: isCurrentSession() ? theme.accent : theme.success,
+                              fg: statusColor(),
                             }}
                           >
-                            {isCurrentSession() ? "▶" : "•"}
+                            {statusIcon()}
                           </text>
                           <text fg={isCurrentSession() ? theme.accent : theme.text} wrapMode="word">
                             {childSession.title}
