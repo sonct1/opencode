@@ -218,8 +218,8 @@ export function Session() {
       }
     }
 
-    // Handle session_parent keybind
-    if (evt.ctrl && evt.name === "up") {
+    // Handle session_parent keybind (using keybind system with leader key)
+    if (keybind.leader && evt.name === "up") {
       const parentSession = sync.data.session.find((x) => x.id === session()?.parentID)
       if (parentSession) {
         navigate({
@@ -884,6 +884,7 @@ export function Session() {
     {
       title: "Go to parent session",
       value: "session.parent",
+      keybind: "session_parent",
       category: "Session",
       disabled: !session()?.parentID,
       onSelect: (dialog) => {

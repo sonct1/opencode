@@ -7345,7 +7345,7 @@
           },
           "app_exit": {
             "description": "Exit the application",
-            "default": "ctrl+c,ctrl+d,<leader>q",
+            "default": "ctrl+z,<leader>q",
             "type": "string"
           },
           "editor_open": {
@@ -7408,6 +7408,16 @@
             "default": "none",
             "type": "string"
           },
+          "session_rename": {
+            "description": "Rename current session",
+            "default": "none",
+            "type": "string"
+          },
+          "session_copy": {
+            "description": "Copy session transcript to clipboard",
+            "default": "none",
+            "type": "string"
+          },
           "session_interrupt": {
             "description": "Interrupt current session",
             "default": "escape",
@@ -7466,6 +7476,11 @@
           "messages_copy": {
             "description": "Copy message",
             "default": "<leader>y",
+            "type": "string"
+          },
+          "copy_selected": {
+            "description": "Copy selected text to clipboard",
+            "default": "ctrl+c",
             "type": "string"
           },
           "messages_undo": {
@@ -7535,7 +7550,7 @@
           },
           "input_clear": {
             "description": "Clear input field",
-            "default": "ctrl+c",
+            "default": "ctrl+alt+c",
             "type": "string"
           },
           "input_forward_delete": {
@@ -7578,9 +7593,9 @@
             "default": "<leader>left",
             "type": "string"
           },
-          "terminal_suspend": {
-            "description": "Suspend terminal",
-            "default": "ctrl+z",
+          "session_parent": {
+            "description": "Go to parent session",
+            "default": "<leader>up",
             "type": "string"
           }
         },

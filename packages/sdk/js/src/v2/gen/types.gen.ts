@@ -829,6 +829,14 @@ export type KeybindsConfig = {
    */
   session_unshare?: string
   /**
+   * Rename current session
+   */
+  session_rename?: string
+  /**
+   * Copy session transcript to clipboard
+   */
+  session_copy?: string
+  /**
    * Interrupt current session
    */
   session_interrupt?: string
@@ -865,9 +873,21 @@ export type KeybindsConfig = {
    */
   messages_last_user?: string
   /**
+   * Navigate to previous message
+   */
+  messages_previous?: string
+  /**
+   * Navigate to next message
+   */
+  messages_next?: string
+  /**
    * Copy message
    */
   messages_copy?: string
+  /**
+   * Copy selected text to clipboard
+   */
+  copy_selected?: string
   /**
    * Undo message
    */
@@ -884,6 +904,14 @@ export type KeybindsConfig = {
    * Toggle tool details visibility
    */
   tool_details?: string
+  /**
+   * Toggle all bash command outputs
+   */
+  bash_output_toggle?: string
+  /**
+   * Toggle all file contents (write/edit)
+   */
+  file_content_toggle?: string
   /**
    * List available models
    */
@@ -949,9 +977,9 @@ export type KeybindsConfig = {
    */
   session_child_cycle_reverse?: string
   /**
-   * Suspend terminal
+   * Go to parent session
    */
-  terminal_suspend?: string
+  session_parent?: string
 }
 
 export type AgentConfig = {
@@ -1192,6 +1220,10 @@ export type Config = {
      * Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column
      */
     diff_style?: "auto" | "stacked"
+    /**
+     * Automatically copy selected text to clipboard when mouse selection ends
+     */
+    copy_on_select?: boolean
   }
   /**
    * Command configuration, see https://opencode.ai/docs/commands
