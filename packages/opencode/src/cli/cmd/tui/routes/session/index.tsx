@@ -483,6 +483,7 @@ export function Session() {
     {
       title: collapseBashOutput() ? "Expand all bash outputs" : "Collapse all bash outputs",
       value: "session.toggle.bash_output",
+      keybind: "bash_output_toggle",
       category: "Session",
       onSelect: (dialog) => {
         setCollapseBashOutput((prev) => {
@@ -496,6 +497,7 @@ export function Session() {
     {
       title: collapseFileContent() ? "Expand all file contents" : "Collapse all file contents",
       value: "session.toggle.file_content",
+      keybind: "file_content_toggle",
       category: "Session",
       onSelect: (dialog) => {
         setCollapseFileContent((prev) => {
@@ -601,6 +603,7 @@ export function Session() {
     {
       title: "Previous message",
       value: "session.messages.previous",
+      keybind: "messages_previous",
       category: "Session",
       disabled: true,
       onSelect: () => {
@@ -626,6 +629,7 @@ export function Session() {
     {
       title: "Next message",
       value: "session.messages.next",
+      keybind: "messages_next",
       category: "Session",
       disabled: true,
       onSelect: () => {
