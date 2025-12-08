@@ -355,6 +355,7 @@ function App() {
     {
       title: "Switch theme",
       value: "theme.switch",
+      keybind: "theme_list",
       onSelect: () => {
         dialog.replace(() => <DialogThemeList />)
       },
@@ -389,6 +390,7 @@ function App() {
     {
       title: "Exit the app",
       value: "app.exit",
+      keybind: "app_exit",
       onSelect: () => exit(),
       category: "System",
     },

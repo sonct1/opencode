@@ -286,6 +286,7 @@ export function Session() {
     {
       title: "Rename session",
       value: "session.rename",
+      keybind: "session_rename",
       category: "Session",
       onSelect: (dialog) => {
         dialog.replace(() => <DialogSessionRename session={route.sessionID} />)
