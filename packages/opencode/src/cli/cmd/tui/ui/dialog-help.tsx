@@ -143,6 +143,8 @@ export function DialogHelp() {
         { label: "Half page down", key: keybind.print("messages_half_page_down") },
         { label: "Go to first message", key: keybind.print("messages_first") },
         { label: "Go to last message", key: keybind.print("messages_last") },
+        { label: "Next child session", key: keybind.print("session_child_cycle") },
+        { label: "Previous child session", key: keybind.print("session_child_cycle_reverse") },
         { label: "Go to parent session", key: keybind.print("session_parent") },
         { label: "Previous message", key: keybind.print("messages_previous") },
         { label: "Next message", key: keybind.print("messages_next") },
