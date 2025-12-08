@@ -434,6 +434,8 @@ export namespace Config {
       session_timeline: z.string().optional().default("<leader>g").describe("Show session timeline"),
       session_share: z.string().optional().default("none").describe("Share current session"),
       session_unshare: z.string().optional().default("none").describe("Unshare current session"),
+      session_rename: z.string().optional().default("none").describe("Rename current session"),
+      session_copy: z.string().optional().default("none").describe("Copy session transcript to clipboard"),
       session_interrupt: z.string().optional().default("escape").describe("Interrupt current session"),
       session_compact: z.string().optional().default("<leader>c").describe("Compact the session"),
       messages_page_up: z.string().optional().default("pageup").describe("Scroll messages up by one page"),
@@ -477,12 +479,14 @@ export namespace Config {
       history_next: z.string().optional().default("down").describe("Next history item"),
       session_child_cycle: z.string().optional().default("<leader>right").describe("Next child session"),
       session_child_cycle_reverse: z.string().optional().default("<leader>left").describe("Previous child session"),
+      session_parent: z.string().optional().default("<leader>up").describe("Go to parent session"),
       // terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
     })
     .strict()
     .meta({
       ref: "KeybindsConfig",
     })
+  export type Keybinds = z.infer<typeof Keybinds>
 
   export const TUI = z.object({
     scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),

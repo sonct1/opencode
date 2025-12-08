@@ -11,10 +11,12 @@ import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
 import { Editor } from "../../util/editor"
 import type { MouseEvent } from "@opentui/core"
+import { useRoute } from "@tui/context/route"
 
 export function Sidebar(props: { sessionID: string }) {
   const sync = useSync()
   const { theme } = useTheme()
+  const { navigate } = useRoute()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
   const diff = createMemo(() => sync.data.session_diff[props.sessionID] ?? [])
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
@@ -25,10 +27,20 @@ export function Sidebar(props: { sessionID: string }) {
     diff: true,
     todo: true,
     lsp: true,
+    subagents: true,
   })
 
   // Sort MCP servers alphabetically for consistent display order
   const mcpEntries = createMemo(() => Object.entries(sync.data.mcp).sort(([a], [b]) => a.localeCompare(b)))
+
+  // Get child sessions (subagent sessions)
+  const childSessions = createMemo(() => {
+    const currentSession = session()
+    const parentID = currentSession.parentID ?? currentSession.id
+    return sync.data.session
+      .filter((x) => x.parentID === parentID || x.id === parentID)
+      .toSorted((b, a) => a.id.localeCompare(b.id))
+  })
 
   const cost = createMemo(() => {
     const total = messages().reduce((sum, x) => sum + (x.role === "assistant" ? x.cost : 0), 0)
@@ -178,6 +190,74 @@ export function Sidebar(props: { sessionID: string }) {
                 </For>
               </Show>
             </box>
+            <Show when={session().parentID}>
+              <box>
+                <text fg={theme.textMuted}>DEBUG: parentID = {session().parentID}</text>
+                <box
+                  flexDirection="row"
+                  gap={1}
+                  onMouseUp={() => {
+                    const parentSession = sync.data.session.find((x) => x.id === session()?.parentID)
+                    if (parentSession) {
+                      navigate({ type: "session", sessionID: parentSession.id })
+                    }
+                  }}
+                >
+                  <text fg={theme.primary}>◀</text>
+                  <text fg={theme.text}>
+                    <b>Back to Main</b>
+                  </text>
+                </box>
+              </box>
+            </Show>
+            <Show when={childSessions().length > 1}>
+              <box>
+                <box
+                  flexDirection="row"
+                  gap={1}
+                  onMouseDown={() => childSessions().length > 2 && setExpanded("subagents", !expanded.subagents)}
+                >
+                  <Show when={childSessions().length > 2}>
+                    <text fg={theme.text}>{expanded.subagents ? "▼" : "▶"}</text>
+                  </Show>
+                  <text fg={theme.text}>
+                    <b>Sessions</b>
+                  </text>
+                  <text fg={theme.textMuted}>
+                    {keybind.print("session_child_cycle_reverse")}, {keybind.print("session_child_cycle")} to navigate
+                  </text>
+                </box>
+                <Show when={childSessions().length <= 2 || expanded.subagents}>
+                  <For each={childSessions()}>
+                    {(childSession) => {
+                      const isCurrentSession = createMemo(() => childSession.id === session().id)
+                      return (
+                        <box
+                          flexDirection="row"
+                          gap={1}
+                          onMouseUp={() => navigate({ type: "session", sessionID: childSession.id })}
+                        >
+                          <text
+                            flexShrink={0}
+                            style={{
+                              fg: isCurrentSession() ? theme.accent : theme.success,
+                            }}
+                          >
+                            {isCurrentSession() ? "▶" : "•"}
+                          </text>
+                          <text fg={isCurrentSession() ? theme.accent : theme.text} wrapMode="word">
+                            {childSession.title}
+                            <Show when={childSession.parentID}>
+                              <span style={{ fg: theme.textMuted }}> (subagent)</span>
+                            </Show>
+                          </text>
+                        </box>
+                      )
+                    }}
+                  </For>
+                </Show>
+              </box>
+            </Show>
             <Show when={todo().length > 0 && todo().some((t) => t.status !== "completed")}>
               <box>
                 <box
@@ -310,7 +390,6 @@ function DiffFileItem(props: { file: string; additions: number; deletions: numbe
           </Show>
         </box>
       </box>
-
     </box>
   )
 }

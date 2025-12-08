@@ -143,6 +143,7 @@ export function DialogHelp() {
         { label: "Half page down", key: keybind.print("messages_half_page_down") },
         { label: "Go to first message", key: keybind.print("messages_first") },
         { label: "Go to last message", key: keybind.print("messages_last") },
+        { label: "Go to parent session", key: keybind.print("session_parent") },
         { label: "Previous message", key: keybind.print("messages_previous") },
         { label: "Next message", key: keybind.print("messages_next") },
       ],
@@ -222,8 +223,7 @@ export function DialogHelp() {
       </scrollbox>
       <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1} marginTop={1}>
         <text fg={theme.textMuted}>
-          <span style={{ fg: theme.accent }}>↑↓jk</span> scroll{" "}
-          <span style={{ fg: theme.accent }}>pgup/dn</span> page{" "}
+          <span style={{ fg: theme.accent }}>↑↓jk</span> scroll <span style={{ fg: theme.accent }}>pgup/dn</span> page{" "}
           <span style={{ fg: theme.accent }}>g/G</span> first/last
         </text>
         <text fg={theme.textMuted}>

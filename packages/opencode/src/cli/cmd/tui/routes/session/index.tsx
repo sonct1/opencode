@@ -217,6 +217,17 @@ export function Session() {
         })
       }
     }
+
+    // Handle session_parent keybind
+    if (evt.ctrl && evt.name === "up") {
+      const parentSession = sync.data.session.find((x) => x.id === session()?.parentID)
+      if (parentSession) {
+        navigate({
+          type: "session",
+          sessionID: parentSession.id,
+        })
+      }
+    }
   })
 
   function toBottom() {
@@ -275,7 +286,6 @@ export function Session() {
     {
       title: "Rename session",
       value: "session.rename",
-      keybind: "session_rename",
       category: "Session",
       onSelect: (dialog) => {
         dialog.replace(() => <DialogSessionRename session={route.sessionID} />)
@@ -473,7 +483,6 @@ export function Session() {
     {
       title: collapseBashOutput() ? "Expand all bash outputs" : "Collapse all bash outputs",
       value: "session.toggle.bash_output",
-      keybind: "bash_output_toggle",
       category: "Session",
       onSelect: (dialog) => {
         setCollapseBashOutput((prev) => {
@@ -487,7 +496,6 @@ export function Session() {
     {
       title: collapseFileContent() ? "Expand all file contents" : "Collapse all file contents",
       value: "session.toggle.file_content",
-      keybind: "file_content_toggle",
       category: "Session",
       onSelect: (dialog) => {
         setCollapseFileContent((prev) => {
@@ -593,7 +601,6 @@ export function Session() {
     {
       title: "Previous message",
       value: "session.messages.previous",
-      keybind: "messages_previous",
       category: "Session",
       disabled: true,
       onSelect: () => {
@@ -619,7 +626,6 @@ export function Session() {
     {
       title: "Next message",
       value: "session.messages.next",
-      keybind: "messages_next",
       category: "Session",
       disabled: true,
       onSelect: () => {
@@ -872,6 +878,22 @@ export function Session() {
       disabled: true,
       onSelect: (dialog) => {
         moveChild(-1)
+        dialog.clear()
+      },
+    },
+    {
+      title: "Go to parent session",
+      value: "session.parent",
+      category: "Session",
+      disabled: !session()?.parentID,
+      onSelect: (dialog) => {
+        const parentSession = sync.data.session.find((x) => x.id === session()?.parentID)
+        if (parentSession) {
+          navigate({
+            type: "session",
+            sessionID: parentSession.id,
+          })
+        }
         dialog.clear()
       },
     },
@@ -1512,7 +1534,6 @@ function FileLink(props: { filePath: string; icon: string; prefix: string; suffi
           <span style={{ underline: true }}>{displayPath}</span>
         </Show>
         {props.suffix ? ` ${props.suffix}` : ""}
-
       </text>
     </box>
   )
@@ -1579,12 +1600,7 @@ ToolRegistry.register<typeof ReadTool>({
           </ToolTitle>
         }
       >
-        <FileLink
-          icon="→"
-          prefix="Read"
-          filePath={props.input.filePath!}
-          suffix={input(props.input, ["filePath"])}
-        />
+        <FileLink icon="→" prefix="Read" filePath={props.input.filePath!} suffix={input(props.input, ["filePath"])} />
       </Show>
     )
   },
