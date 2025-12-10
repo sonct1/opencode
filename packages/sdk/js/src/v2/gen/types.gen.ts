@@ -4,13 +4,6 @@ export type ClientOptions = {
   baseUrl: `${string}://${string}` | (string & {})
 }
 
-export type EventServerInstanceDisposed = {
-  type: "server.instance.disposed"
-  properties: {
-    directory: string
-  }
-}
-
 export type EventInstallationUpdated = {
   type: "installation.updated"
   properties: {
@@ -22,6 +15,34 @@ export type EventInstallationUpdateAvailable = {
   type: "installation.update-available"
   properties: {
     version: string
+  }
+}
+
+export type Project = {
+  id: string
+  worktree: string
+  vcs?: "git"
+  name?: string
+  icon?: {
+    url?: string
+    color?: string
+  }
+  time: {
+    created: number
+    updated: number
+    initialized?: number
+  }
+}
+
+export type EventProjectUpdated = {
+  type: "project.updated"
+  properties: Project
+}
+
+export type EventServerInstanceDisposed = {
+  type: "server.instance.disposed"
+  properties: {
+    directory: string
   }
 }
 
@@ -704,9 +725,10 @@ export type EventServerConnected = {
 }
 
 export type Event =
-  | EventServerInstanceDisposed
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
+  | EventProjectUpdated
+  | EventServerInstanceDisposed
   | EventLspClientDiagnostics
   | EventLspUpdated
   | EventMessageUpdated
@@ -740,17 +762,6 @@ export type Event =
 export type GlobalEvent = {
   directory: string
   payload: Event
-}
-
-export type Project = {
-  id: string
-  worktree: string
-  vcsDir?: string
-  vcs?: "git"
-  time: {
-    created: number
-    initialized?: number
-  }
 }
 
 export type BadRequestError = {
@@ -945,10 +956,6 @@ export type KeybindsConfig = {
    */
   input_clear?: string
   /**
-   * Forward delete
-   */
-  input_forward_delete?: string
-  /**
    * Paste from clipboard
    */
   input_paste?: string
@@ -1061,6 +1068,11 @@ export type ProviderConfig = {
       reasoning?: boolean
       temperature?: boolean
       tool_call?: boolean
+      interleaved?:
+        | true
+        | {
+            field: "reasoning_content" | "reasoning_details"
+          }
       cost?: {
         input: number
         output: number
@@ -1500,6 +1512,11 @@ export type Model = {
       video: boolean
       pdf: boolean
     }
+    interleaved:
+      | boolean
+      | {
+          field: "reasoning_content" | "reasoning_details"
+        }
   }
   cost: {
     input: number
@@ -1746,6 +1763,45 @@ export type ProjectCurrentResponses = {
 }
 
 export type ProjectCurrentResponse = ProjectCurrentResponses[keyof ProjectCurrentResponses]
+
+export type ProjectUpdateData = {
+  body?: {
+    name?: string
+    icon?: {
+      url?: string
+      color?: string
+    }
+  }
+  path: {
+    projectID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/project/{projectID}"
+}
+
+export type ProjectUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type ProjectUpdateError = ProjectUpdateErrors[keyof ProjectUpdateErrors]
+
+export type ProjectUpdateResponses = {
+  /**
+   * Updated project information
+   */
+  200: Project
+}
+
+export type ProjectUpdateResponse = ProjectUpdateResponses[keyof ProjectUpdateResponses]
 
 export type PtyListData = {
   body?: never
@@ -3008,6 +3064,11 @@ export type ProviderListResponses = {
           reasoning: boolean
           temperature: boolean
           tool_call: boolean
+          interleaved?:
+            | true
+            | {
+                field: "reasoning_content" | "reasoning_details"
+              }
           cost?: {
             input: number
             output: number
@@ -3534,6 +3595,46 @@ export type McpAuthAuthenticateResponses = {
 }
 
 export type McpAuthAuthenticateResponse = McpAuthAuthenticateResponses[keyof McpAuthAuthenticateResponses]
+
+export type McpConnectData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/mcp/{name}/connect"
+}
+
+export type McpConnectResponses = {
+  /**
+   * MCP server connected successfully
+   */
+  200: boolean
+}
+
+export type McpConnectResponse = McpConnectResponses[keyof McpConnectResponses]
+
+export type McpDisconnectData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/mcp/{name}/disconnect"
+}
+
+export type McpDisconnectResponses = {
+  /**
+   * MCP server disconnected successfully
+   */
+  200: boolean
+}
+
+export type McpDisconnectResponse = McpDisconnectResponses[keyof McpDisconnectResponses]
 
 export type LspStatusData = {
   body?: never

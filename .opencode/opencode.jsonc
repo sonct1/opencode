@@ -11,9 +11,7 @@
   ],
   "provider": {
     "opencode": {
-      "options": {
-        // "baseURL": "http://localhost:8080",
-      },
+      "options": {},
     },
   },
   "mcp": {
