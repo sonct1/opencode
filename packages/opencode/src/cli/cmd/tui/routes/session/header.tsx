@@ -1,11 +1,10 @@
-import { type Accessor, createMemo, Match, Show, Switch } from "solid-js"
-import { useRouteData } from "@tui/context/route"
+import { type Accessor, createMemo, Match, Show, Switch, createSignal } from "solid-js"
+import { useRouteData, useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { pipe, sumBy } from "remeda"
 import { useTheme } from "@tui/context/theme"
-import { SplitBorder, EmptyBorder } from "@tui/component/border"
+import { SplitBorder } from "@tui/component/border"
 import type { AssistantMessage, Session } from "@opencode-ai/sdk/v2"
-import { useDirectory } from "../../context/directory"
 import { useKeybind } from "../../context/keybind"
 
 const Title = (props: { session: Accessor<Session> }) => {
@@ -31,6 +30,7 @@ const ContextInfo = (props: { context: Accessor<string | undefined>; cost: Acces
 export function Header() {
   const route = useRouteData("session")
   const sync = useSync()
+  const { navigate } = useRoute()
   const session = createMemo(() => sync.session.get(route.sessionID)!)
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const shareEnabled = createMemo(() => sync.data.config.share !== "disabled")
@@ -61,6 +61,40 @@ export function Header() {
 
   const { theme } = useTheme()
   const keybind = useKeybind()
+  const [hoveredButton, setHoveredButton] = createSignal<string | null>(null)
+
+  const handleBack = () => {
+    const parentSession = sync.data.session.find((x) => x.id === session()?.parentID)
+    if (parentSession) {
+      navigate({ type: "session", sessionID: parentSession.id })
+    }
+  }
+
+  const handlePrev = () => {
+    const parentID = session()?.parentID ?? session()?.id
+    let children = sync.data.session
+      .filter((x) => x.parentID === parentID || x.id === parentID)
+      .toSorted((b, a) => a.id.localeCompare(b.id))
+    if (children.length <= 1) return
+    let prev = children.findIndex((x) => x.id === session()?.id) - 1
+    if (prev < 0) prev = children.length - 1
+    if (children[prev]) {
+      navigate({ type: "session", sessionID: children[prev].id })
+    }
+  }
+
+  const handleNext = () => {
+    const parentID = session()?.parentID ?? session()?.id
+    let children = sync.data.session
+      .filter((x) => x.parentID === parentID || x.id === parentID)
+      .toSorted((b, a) => a.id.localeCompare(b.id))
+    if (children.length <= 1) return
+    let next = children.findIndex((x) => x.id === session()?.id) + 1
+    if (next >= children.length) next = 0
+    if (children[next]) {
+      navigate({ type: "session", sessionID: children[next].id })
+    }
+  }
 
   return (
     <box flexShrink={0}>
@@ -81,15 +115,33 @@ export function Header() {
               <text fg={theme.text}>
                 <b>Subagent session</b>
               </text>
-              <text fg={theme.text}>
-                Back <span style={{ fg: theme.textMuted }}>{keybind.print("session_parent")}</span>
-              </text>
-              <text fg={theme.text}>
-                Prev <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle_reverse")}</span>
-              </text>
-              <text fg={theme.text}>
-                Next <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle")}</span>
-              </text>
+              <box
+                onMouseUp={handleBack}
+                onMouseOver={() => setHoveredButton("back")}
+                onMouseOut={() => setHoveredButton(null)}
+              >
+                <text fg={hoveredButton() === "back" ? theme.accent : theme.text}>
+                  Back <span style={{ fg: theme.textMuted }}>{keybind.print("session_parent")}</span>
+                </text>
+              </box>
+              <box
+                onMouseUp={handlePrev}
+                onMouseOver={() => setHoveredButton("prev")}
+                onMouseOut={() => setHoveredButton(null)}
+              >
+                <text fg={hoveredButton() === "prev" ? theme.accent : theme.text}>
+                  Prev <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle_reverse")}</span>
+                </text>
+              </box>
+              <box
+                onMouseUp={handleNext}
+                onMouseOver={() => setHoveredButton("next")}
+                onMouseOut={() => setHoveredButton(null)}
+              >
+                <text fg={hoveredButton() === "next" ? theme.accent : theme.text}>
+                  Next <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle")}</span>
+                </text>
+              </box>
               <box flexGrow={1} flexShrink={1} />
               <ContextInfo context={context} cost={cost} />
             </box>
