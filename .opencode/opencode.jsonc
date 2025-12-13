@@ -1,19 +1,19 @@
 {
   "$schema": "https://opencode.ai/config.json",
   // "plugin": [
-    "opencode-openai-codex-auth"
-  ],
+    // "opencode-openai-codex-auth"
+  // ],
   // "enterprise": {
   //   "url": "https://enterprise.dev.opencode.ai",
   // },
-  "instructions": [
-    "STYLE_GUIDE.md"
-  ],
-  "provider": {
-    "opencode": {
-      "options": {},
-    },
-  },
+  // "instructions": [
+  //   "STYLE_GUIDE.md"
+  // ],
+  // "provider": {
+  //   "opencode": {
+  //     "options": {},
+  //   },
+  // },
   "mcp": {
     "exa": {
       "type": "remote",
@@ -29,8 +29,8 @@
         "ENABLED_TOOLS": "warp_grep",
       },
     },
-  },
-  "tui": {
-    "copy_on_select": false // tắt auto copy khi select
   }
+  // "tui": {
+  //   "copy_on_select": false // tắt auto copy khi select
+  // }
 }

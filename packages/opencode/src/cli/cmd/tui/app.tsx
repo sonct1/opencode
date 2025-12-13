@@ -578,29 +578,6 @@ function LoadingScreen() {
   )
 }
 
-function LoadingScreen() {
-  const { theme } = useTheme()
-  const loadingFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-  const [loadingIndex, setLoadingIndex] = createSignal(0)
-
-  onMount(() => {
-    const interval = setInterval(() => {
-      setLoadingIndex((i) => (i + 1) % loadingFrames.length)
-    }, 80)
-    onCleanup(() => clearInterval(interval))
-  })
-
-  return (
-    <box flexGrow={1} justifyContent="center" alignItems="center" gap={1}>
-      <Logo />
-      <box paddingTop={2} flexDirection="row" alignItems="center" gap={1}>
-        <text fg={theme.accent}>{loadingFrames[loadingIndex()]}</text>
-        <text fg={theme.textMuted}>Loading...</text>
-      </box>
-    </box>
-  )
-}
-
 function ErrorComponent(props: {
   error: Error
   reset: () => void
