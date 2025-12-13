@@ -656,6 +656,7 @@ export namespace Config {
       autoupdate: z
         .union([z.boolean(), z.literal("notify")])
         .optional()
+        .default(false)
         .describe(
           "Automatically update to the latest version. Set to true to auto-update, false to disable, or 'notify' to show update notifications",
         ),
@@ -842,7 +843,7 @@ export namespace Config {
         if (err.code === "ENOENT") return
         throw new JsonError({ path: filepath }, { cause: err })
       })
-    if (!text) return {}
+    if (!text) return { autoupdate: false }
     return load(text, filepath)
   }
 
