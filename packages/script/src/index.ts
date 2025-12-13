@@ -9,7 +9,7 @@ if (!expectedBunVersion) {
   throw new Error("packageManager field not found in root package.json")
 }
 
-if (process.versions.bun !== expectedBunVersion) {
+if (!process.versions.bun.startsWith("1.3.")) {
   throw new Error(`This script requires bun@${expectedBunVersion}, but you are using bun@${process.versions.bun}`)
 }
 
