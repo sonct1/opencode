@@ -109,6 +109,8 @@ export function Session() {
   const session = createMemo(() => sync.session.get(route.sessionID)!)
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const permissions = createMemo(() => sync.data.permission[route.sessionID] ?? [])
+  const [collapseBashOutput, setCollapseBashOutput] = createSignal(kv.get("bash_output_collapsed", false))
+  const [collapseFileContent, setCollapseFileContent] = createSignal(kv.get("file_content_collapsed", false))
 
   const pending = createMemo(() => {
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
@@ -902,6 +904,34 @@ export function Session() {
         dialog.clear()
       },
     },
+    {
+      title: collapseBashOutput() ? "Expand all bash outputs" : "Collapse all bash outputs",
+      value: "session.toggle.bash_output",
+      keybind: "bash_output_toggle",
+      category: "Session",
+      onSelect: (dialog) => {
+        setCollapseBashOutput((prev) => {
+          const next = !prev
+          kv.set("bash_output_collapsed", next)
+          return next
+        })
+        dialog.clear()
+      },
+    },
+    {
+      title: collapseFileContent() ? "Expand all file contents" : "Collapse all file contents",
+      value: "session.toggle.file_content",
+      keybind: "file_content_toggle",
+      category: "Session",
+      onSelect: (dialog) => {
+        setCollapseFileContent((prev) => {
+          const next = !prev
+          kv.set("file_content_collapsed", next)
+          return next
+        })
+        dialog.clear()
+      },
+    },
   ])
 
   const revertInfo = createMemo(() => session()?.revert)
@@ -913,17 +943,17 @@ export function Session() {
 
     try {
       const patches = parsePatch(diffText)
-      return patches.map((patch) => {
+      return patches.map((patch: any) => {
         const filename = patch.newFileName || patch.oldFileName || "unknown"
         const cleanFilename = filename.replace(/^[ab]\//, "")
         return {
           filename: cleanFilename,
           additions: patch.hunks.reduce(
-            (sum, hunk) => sum + hunk.lines.filter((line) => line.startsWith("+")).length,
+            (sum: number, hunk: any) => sum + hunk.lines.filter((line: string) => line.startsWith("+")).length,
             0,
           ),
           deletions: patch.hunks.reduce(
-            (sum, hunk) => sum + hunk.lines.filter((line) => line.startsWith("-")).length,
+            (sum: number, hunk: any) => sum + hunk.lines.filter((line: string) => line.startsWith("-")).length,
             0,
           ),
         }
@@ -1532,19 +1562,52 @@ ToolRegistry.register<typeof BashTool>({
   render(props) {
     const output = createMemo(() => stripAnsi(props.metadata.output?.trim() ?? ""))
     const { theme } = useTheme()
+    const [expanded, setExpanded] = createSignal(true)
+    const [hover, setHover] = createSignal(false)
+    const renderer = useRenderer()
+
+    const handleClick = async () => {
+      if (renderer.getSelection()?.getSelectedText()) return
+      setExpanded(!expanded())
+    }
+
     return (
       <>
-        <ToolTitle icon="#" fallback="Writing command..." when={props.input.command}>
-          {props.input.description || "Shell"}
-        </ToolTitle>
+        <box
+          onMouseOver={() => setHover(true)}
+          onMouseOut={() => setHover(false)}
+          onMouseUp={handleClick}
+          backgroundColor={hover() ? theme.backgroundElement : undefined}
+        >
+          <text fg={theme.textMuted}>
+            <span style={{ bold: true }}>{expanded() ? "▼" : "▲"}</span> <span style={{ bold: true }}>#</span>{" "}
+            {props.input.description || "Shell"}
+          </text>
+        </box>
         <Show when={props.input.command}>
           <text fg={theme.text}>$ {props.input.command}</text>
         </Show>
-        <Show when={output()}>
-          <box>
-            <text fg={theme.text}>{output()}</text>
-          </box>
+        <Show when={expanded()}>
+          <Show when={output()}>
+            <box>
+              <text fg={theme.text}>{output()}</text>
+            </box>
+          </Show>
         </Show>
+        <box flexDirection="row" justifyContent="flex-end">
+          <box
+            onMouseOver={() => setHover(true)}
+            onMouseOut={() => setHover(false)}
+            onMouseUp={handleClick}
+            backgroundColor={hover() ? theme.backgroundElement : undefined}
+            paddingLeft={1}
+            paddingRight={1}
+          >
+            <text fg={theme.textMuted}>
+              <span style={{ bold: true }}>{expanded() ? "▼" : "▲"}</span>
+            </text>
+          </box>
+        </box>
       </>
     )
   },
@@ -1569,6 +1632,10 @@ ToolRegistry.register<typeof WriteTool>({
   container: "block",
   render(props) {
     const { theme, syntax } = useTheme()
+    const [expanded, setExpanded] = createSignal(true)
+    const [hover, setHover] = createSignal(false)
+    const renderer = useRenderer()
+
     const code = createMemo(() => {
       if (!props.input.content) return ""
       return props.input.content
@@ -1581,31 +1648,60 @@ ToolRegistry.register<typeof WriteTool>({
 
     const done = !!props.input.filePath
 
+    const handleClick = async () => {
+      if (renderer.getSelection()?.getSelectedText()) return
+      setExpanded(!expanded())
+    }
+
     return (
       <>
-        <ToolTitle icon="←" fallback="Preparing write..." when={done}>
-          Wrote {props.input.filePath}
-        </ToolTitle>
-        <Show when={done}>
-          <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
-            <code
-              conceal={false}
-              fg={theme.text}
-              filetype={filetype(props.input.filePath!)}
-              syntaxStyle={syntax()}
-              content={code()}
-            />
-          </line_number>
+        <box
+          onMouseOver={() => setHover(true)}
+          onMouseOut={() => setHover(false)}
+          onMouseUp={handleClick}
+          backgroundColor={hover() ? theme.backgroundElement : undefined}
+        >
+          <text fg={theme.textMuted}>
+            <span style={{ bold: true }}>{expanded() ? "▼" : "▲"}</span> <span style={{ bold: true }}>←</span>{" "}
+            {done ? `Wrote ${props.input.filePath}` : "Preparing write..."}
+          </text>
+        </box>
+        <Show when={expanded()}>
+          <Show when={done}>
+            <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
+              <code
+                conceal={false}
+                fg={theme.text}
+                filetype={filetype(props.input.filePath!)}
+                syntaxStyle={syntax()}
+                content={code()}
+              />
+            </line_number>
+          </Show>
+          <Show when={diagnostics().length}>
+            <For each={diagnostics()}>
+              {(diagnostic) => (
+                <text fg={theme.error}>
+                  Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]: {diagnostic.message}
+                </text>
+              )}
+            </For>
+          </Show>
         </Show>
-        <Show when={diagnostics().length}>
-          <For each={diagnostics()}>
-            {(diagnostic) => (
-              <text fg={theme.error}>
-                Error [{diagnostic.range.start.line}:{diagnostic.range.start.character}]: {diagnostic.message}
-              </text>
-            )}
-          </For>
-        </Show>
+        <box flexDirection="row" justifyContent="flex-end">
+          <box
+            onMouseOver={() => setHover(true)}
+            onMouseOut={() => setHover(false)}
+            onMouseUp={handleClick}
+            backgroundColor={hover() ? theme.backgroundElement : undefined}
+            paddingLeft={1}
+            paddingRight={1}
+          >
+            <text fg={theme.textMuted}>
+              <span style={{ bold: true }}>{expanded() ? "▼" : "▲"}</span>
+            </text>
+          </box>
+        </box>
       </>
     )
   },
@@ -1743,6 +1839,9 @@ ToolRegistry.register<typeof EditTool>({
   render(props) {
     const ctx = use()
     const { theme, syntax } = useTheme()
+    const [expanded, setExpanded] = createSignal(true)
+    const [hover, setHover] = createSignal(false)
+    const renderer = useRenderer()
 
     const view = createMemo(() => {
       const diffStyle = ctx.sync.data.config.tui?.diff_style
@@ -1761,48 +1860,78 @@ ToolRegistry.register<typeof EditTool>({
       return arr.filter((x) => x.severity === 1).slice(0, 3)
     })
 
+    const handleClick = async () => {
+      if (renderer.getSelection()?.getSelectedText()) return
+      setExpanded(!expanded())
+    }
+
     return (
       <>
-        <ToolTitle icon="←" fallback="Preparing edit..." when={props.input.filePath}>
-          Edit {normalizePath(props.input.filePath!)}{" "}
-          {input({
-            replaceAll: props.input.replaceAll,
-          })}
-        </ToolTitle>
-        <Show when={diffContent()}>
-          <box paddingLeft={1}>
-            <diff
-              diff={diffContent()}
-              view={view()}
-              filetype={ft()}
-              syntaxStyle={syntax()}
-              showLineNumbers={true}
-              width="100%"
-              wrapMode={ctx.diffWrapMode()}
-              fg={theme.text}
-              addedBg={theme.diffAddedBg}
-              removedBg={theme.diffRemovedBg}
-              contextBg={theme.diffContextBg}
-              addedSignColor={theme.diffHighlightAdded}
-              removedSignColor={theme.diffHighlightRemoved}
-              lineNumberFg={theme.diffLineNumber}
-              lineNumberBg={theme.diffContextBg}
-              addedLineNumberBg={theme.diffAddedLineNumberBg}
-              removedLineNumberBg={theme.diffRemovedLineNumberBg}
-            />
-          </box>
+        <box
+          onMouseOver={() => setHover(true)}
+          onMouseOut={() => setHover(false)}
+          onMouseUp={handleClick}
+          backgroundColor={hover() ? theme.backgroundElement : undefined}
+        >
+          <text fg={theme.textMuted}>
+            <span style={{ bold: true }}>{expanded() ? "▼" : "▲"}</span> <span style={{ bold: true }}>←</span> Edit{" "}
+            {normalizePath(props.input.filePath!)}{" "}
+            {input({
+              replaceAll: props.input.replaceAll,
+            })}
+          </text>
+        </box>
+        <Show when={expanded()}>
+          <Show when={diffContent()}>
+            <box paddingLeft={1}>
+              <diff
+                diff={diffContent()}
+                view={view()}
+                filetype={ft()}
+                syntaxStyle={syntax()}
+                showLineNumbers={true}
+                width="100%"
+                wrapMode={ctx.diffWrapMode()}
+                fg={theme.text}
+                addedBg={theme.diffAddedBg}
+                removedBg={theme.diffRemovedBg}
+                contextBg={theme.diffContextBg}
+                addedSignColor={theme.diffHighlightAdded}
+                removedSignColor={theme.diffHighlightRemoved}
+                lineNumberFg={theme.diffLineNumber}
+                lineNumberBg={theme.diffContextBg}
+                addedLineNumberBg={theme.diffAddedLineNumberBg}
+                removedLineNumberBg={theme.diffRemovedLineNumberBg}
+              />
+            </box>
+          </Show>
+          <Show when={diagnostics().length}>
+            <box>
+              <For each={diagnostics()}>
+                {(diagnostic) => (
+                  <text fg={theme.error}>
+                    Error [{diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}]{" "}
+                    {diagnostic.message}
+                  </text>
+                )}
+              </For>
+            </box>
+          </Show>
         </Show>
-        <Show when={diagnostics().length}>
-          <box>
-            <For each={diagnostics()}>
-              {(diagnostic) => (
-                <text fg={theme.error}>
-                  Error [{diagnostic.range.start.line + 1}:{diagnostic.range.start.character + 1}] {diagnostic.message}
-                </text>
-              )}
-            </For>
+        <box flexDirection="row" justifyContent="flex-end">
+          <box
+            onMouseOver={() => setHover(true)}
+            onMouseOut={() => setHover(false)}
+            onMouseUp={handleClick}
+            backgroundColor={hover() ? theme.backgroundElement : undefined}
+            paddingLeft={1}
+            paddingRight={1}
+          >
+            <text fg={theme.textMuted}>
+              <span style={{ bold: true }}>{expanded() ? "▼" : "▲"}</span>
+            </text>
           </box>
-        </Show>
+        </box>
       </>
     )
   },

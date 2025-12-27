@@ -961,7 +961,15 @@ export type KeybindsConfig = {
   /**
    * Toggle terminal title
    */
-  terminal_title_toggle?: string
+  terminal_title_toggle?: string,
+    /**
+   * Toggle all bash command outputs
+   */
+  bash_output_toggle?: string
+  /**
+   * Toggle all file contents (write/edit)
+   */
+  file_content_toggle?: string
 }
 
 export type AgentConfig = {

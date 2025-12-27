@@ -1148,7 +1148,15 @@ export type KeybindsConfig = {
   /**
    * Toggle tips on home screen
    */
-  tips_toggle?: string
+  tips_toggle?: string,
+    /**
+   * Toggle all bash command outputs
+   */
+  bash_output_toggle?: string
+  /**
+   * Toggle all file contents (write/edit)
+   */
+  file_content_toggle?: string
 }
 
 /**

@@ -1,5 +1,5 @@
 import { type Accessor, createMemo, Match, Show, Switch } from "solid-js"
-import { useRouteData } from "@tui/context/route"
+import { useRouteData, useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { pipe, sumBy } from "remeda"
 import { useTheme } from "@tui/context/theme"
@@ -31,6 +31,7 @@ const ContextInfo = (props: { context: Accessor<string | undefined>; cost: Acces
 export function Header() {
   const route = useRouteData("session")
   const sync = useSync()
+  const { navigate } = useRoute()
   const session = createMemo(() => sync.session.get(route.sessionID)!)
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const shareEnabled = createMemo(() => sync.data.config.share !== "disabled")
@@ -62,6 +63,49 @@ export function Header() {
   const { theme } = useTheme()
   const keybind = useKeybind()
 
+  
+  function goToParent() {
+    const parentID = session()?.parentID
+    if (parentID) {
+      navigate({
+        type: "session",
+        sessionID: parentID,
+      })
+    }
+  }
+
+  function goToPrevChild() {
+    const parentID = session()?.parentID ?? session()?.id
+    let children = sync.data.session
+      .filter((x) => x.parentID === parentID || x.id === parentID)
+      .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    if (children.length === 1) return
+    let next = children.findIndex((x) => x.id === session()?.id) - 1
+    if (next < 0) next = children.length - 1
+    if (children[next]) {
+      navigate({
+        type: "session",
+        sessionID: children[next].id,
+      })
+    }
+  }
+
+  function goToNextChild() {
+    const parentID = session()?.parentID ?? session()?.id
+    let children = sync.data.session
+      .filter((x) => x.parentID === parentID || x.id === parentID)
+      .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    if (children.length === 1) return
+    let next = children.findIndex((x) => x.id === session()?.id) + 1
+    if (next >= children.length) next = 0
+    if (children[next]) {
+      navigate({
+        type: "session",
+        sessionID: children[next].id,
+      })
+    }
+  }
+
   return (
     <box flexShrink={0}>
       <box
@@ -81,13 +125,13 @@ export function Header() {
               <text fg={theme.text}>
                 <b>Subagent session</b>
               </text>
-              <text fg={theme.text}>
+              <text fg={theme.primary} onMouseUp={goToParent}>
                 Parent <span style={{ fg: theme.textMuted }}>{keybind.print("session_parent")}</span>
               </text>
-              <text fg={theme.text}>
+              <text fg={theme.primary} onMouseUp={goToPrevChild}>
                 Prev <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle_reverse")}</span>
               </text>
-              <text fg={theme.text}>
+              <text fg={theme.primary} onMouseUp={goToNextChild}>
                 Next <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle")}</span>
               </text>
               <box flexGrow={1} flexShrink={1} />

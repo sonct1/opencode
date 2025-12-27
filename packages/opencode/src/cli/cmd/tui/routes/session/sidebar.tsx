@@ -1,7 +1,8 @@
 import { useSync } from "@tui/context/sync"
-import { createMemo, For, Show, Switch, Match } from "solid-js"
+import { createMemo, For, Show, Switch, Match, createSignal } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../../context/theme"
+import { useRoute } from "@tui/context/route"
 import { Locale } from "@/util/locale"
 import path from "path"
 import type { AssistantMessage } from "@opencode-ai/sdk/v2"
@@ -15,6 +16,7 @@ import { TodoItem } from "../../component/todo-item"
 export function Sidebar(props: { sessionID: string }) {
   const sync = useSync()
   const { theme } = useTheme()
+  const { navigate } = useRoute()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
   const diff = createMemo(() => sync.data.session_diff[props.sessionID] ?? [])
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
@@ -25,10 +27,93 @@ export function Sidebar(props: { sessionID: string }) {
     diff: true,
     todo: true,
     lsp: true,
+    subagents: true,
   })
+
+  const [sessionExpanded, setSessionExpanded] = createSignal<Record<string, boolean>>({})
+
+  const isSessionExpanded = (sessionID: string, level: number) => {
+    // Always expand L0 (main session), allow L1+ to be toggled
+    if (level === 0) return true
+    const currentState = sessionExpanded()[sessionID]
+    return currentState !== undefined ? currentState : level === 1 // L1 defaults to expanded, but only if not explicitly set
+  }
+
+  const toggleSessionExpanded = (sessionID: string) => {
+    setSessionExpanded((prev) => {
+      const currentExpandedState = prev[sessionID] ?? true // Default to expanded if not set
+      return { ...prev, [sessionID]: !currentExpandedState }
+    })
+  }
 
   // Sort MCP servers alphabetically for consistent display order
   const mcpEntries = createMemo(() => Object.entries(sync.data.mcp).sort(([a], [b]) => a.localeCompare(b)))
+
+  // Get all sessions organized in tree structure
+  const allSessions = createMemo(() => {
+    return sync.data.session.toSorted((b, a) => a.time.updated - b.time.updated)
+  })
+
+  // Get current group root (main session of current group)
+  const currentGroupRoot = createMemo(() => {
+    const currentSession = session()
+    // Find the root of the current session tree
+    let rootSession = currentSession
+    while (rootSession.parentID) {
+      const parent = sync.data.session.find((x) => x.id === rootSession.parentID)
+      if (!parent) break
+      rootSession = parent
+    }
+    return rootSession
+  })
+
+  // Get all sessions in current group tree (recursive, respecting expand state)
+  const getCurrentGroupTree = createMemo(() => {
+    const root = currentGroupRoot()
+    const result: Array<{ session: (typeof sync.data.session)[0]; level: number; hasChildren: boolean }> = []
+
+    const buildTree = (sessionID: string, level: number) => {
+      const sessionData = sync.data.session.find((x) => x.id === sessionID)
+      if (!sessionData) return
+
+      // Check if this session has children
+      const children = allSessions()
+        .filter((x) => x.parentID === sessionID)
+        .toSorted((b, a) => a.id.localeCompare(b.id))
+
+      const hasChildren = children.length > 0
+      const isExpanded = isSessionExpanded(sessionID, level)
+
+      result.push({ session: sessionData, level, hasChildren })
+
+      // Only add children if this session is expanded
+      if (isExpanded && hasChildren) {
+        children.forEach((child) => buildTree(child.id, level + 1))
+      }
+    }
+
+    buildTree(root.id, 0)
+    return result
+  })
+
+  // Get session status helper function
+  const getSessionStatus = (sessionID: string) => {
+    return sync.session.status(sessionID)
+  }
+
+  // Get status color and text
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case "working":
+        return { color: theme.warning, text: "●" }
+      case "compacting":
+        return { color: theme.warning, text: "◐" }
+      case "idle":
+        return { color: theme.success, text: "●" }
+      default:
+        return { color: theme.textMuted, text: "●" }
+    }
+  }
 
   // Count connected and error MCP servers for collapsed header display
   const connectedMcpCount = createMemo(() => mcpEntries().filter(([_, item]) => item.status === "connected").length)
@@ -62,6 +147,7 @@ export function Sidebar(props: { sessionID: string }) {
 
   const directory = useDirectory()
   const kv = useKV()
+  const keybind = useKeybind()
 
   const hasProviders = createMemo(() =>
     sync.data.provider.some((x) => x.id !== "opencode" || Object.values(x.models).some((y) => y.cost?.input !== 0)),
@@ -153,6 +239,106 @@ export function Sidebar(props: { sessionID: string }) {
                         </text>
                       </box>
                     )}
+                  </For>
+                </Show>
+              </box>
+            </Show>
+            <Show when={session().parentID}>
+              <box>
+                <box
+                  flexDirection="row"
+                  gap={1}
+                  onMouseUp={() => {
+                    const parentSession = sync.data.session.find((x) => x.id === session()?.parentID)
+                    if (parentSession) {
+                      navigate({ type: "session", sessionID: parentSession.id })
+                    }
+                  }}
+                >
+                  <text fg={theme.primary}>◀</text>
+                  <text fg={theme.text}>
+                    <b>Back to Main</b>
+                  </text>
+                </box>
+              </box>
+            </Show>
+
+            <Show when={getCurrentGroupTree().length > 1}>
+              <box>
+                <box flexDirection="row" gap={0} onMouseDown={() => setExpanded("subagents", !expanded.subagents)}>
+                  <text fg={theme.text}>
+                    <b>Session Agent</b>
+                  </text>
+                  <text fg={theme.textMuted}>
+                    {keybind.print("session_child_cycle_reverse")}, {keybind.print("session_child_cycle")} to navigate
+                  </text>
+                </box>
+                <Show when={expanded.subagents}>
+                  <For each={getCurrentGroupTree()}>
+                    {(sessionItem) => {
+                      const isCurrentSession = createMemo(() => sessionItem.session.id === session().id)
+                      const status = createMemo(
+                        () => sync.data.session_status[sessionItem.session.id] ?? { type: "idle" },
+                      )
+                      const statusIcon = createMemo(() => {
+                        switch (status().type) {
+                          case "busy":
+                            return "●"
+                          case "retry":
+                            return "×"
+                          default:
+                            return isCurrentSession() ? "●" : "○"
+                        }
+                      })
+                      const statusColor = createMemo(() => {
+                        switch (status().type) {
+                          case "busy":
+                            return theme.warning
+                          case "retry":
+                            return theme.error
+                          default:
+                            return isCurrentSession() ? theme.accent : theme.success
+                        }
+                      })
+
+                      return (
+                        <box flexDirection="row" gap={1} paddingLeft={sessionItem.level * 2}>
+                          <text
+                            flexShrink={0}
+                            style={{
+                              fg: statusColor(),
+                            }}
+                          >
+                            {statusIcon()}
+                          </text>
+                          {/* Expand/Collapse button for L1+ sessions with children, not for L0 */}
+                          <Show when={sessionItem.level > 0 && sessionItem.hasChildren}>
+                            <text
+                              flexShrink={0}
+                              fg={theme.text}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onMouseUp={() => toggleSessionExpanded(sessionItem.session.id)}
+                            >
+                              {isSessionExpanded(sessionItem.session.id, sessionItem.level) ? "▾" : "▸"}
+                            </text>
+                          </Show>
+                          <text
+                            fg={isCurrentSession() ? theme.accent : theme.text}
+                            wrapMode="word"
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onMouseUp={() => navigate({ type: "session", sessionID: sessionItem.session.id })}
+                          >
+                            <Show when={sessionItem.level === 0}>
+                              <b>{sessionItem.session.title}</b>
+                            </Show>
+                            <Show when={sessionItem.level > 0}>{sessionItem.session.title}</Show>
+                            <Show when={sessionItem.session.parentID}>
+                              <span style={{ fg: theme.textMuted }}> (L{sessionItem.level})</span>
+                            </Show>
+                          </text>
+                        </box>
+                      )
+                    }}
                   </For>
                 </Show>
               </box>
