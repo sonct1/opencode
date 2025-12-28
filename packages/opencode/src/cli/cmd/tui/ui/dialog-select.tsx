@@ -58,12 +58,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
     on(
       () => props.current,
       (current) => {
-        if (current) {
-          const currentIndex = flat().findIndex((opt) => isDeepEqual(opt.value, current))
-          if (currentIndex >= 0) {
-            setStore("selected", currentIndex)
-          }
-        }
+        // Don't auto-select current model - always start at index 0
+        // User can see current model with ● indicator
       },
     ),
   )
@@ -107,14 +103,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   createEffect(
     on([() => store.filter, () => props.current], ([filter, current]) => {
-      if (filter.length > 0) {
-        setStore("selected", 0)
-      } else if (current) {
-        const currentIndex = flat().findIndex((opt) => isDeepEqual(opt.value, current))
-        if (currentIndex >= 0) {
-          setStore("selected", currentIndex)
-        }
-      }
+      // Always start at index 0, regardless of filter or current model
+      setStore("selected", 0)
       scroll.scrollTo(0)
     }),
   )
