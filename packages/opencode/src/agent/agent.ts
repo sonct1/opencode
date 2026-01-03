@@ -4,16 +4,14 @@ import { Provider } from "../provider/provider"
 import { generateObject, type ModelMessage } from "ai"
 import { SystemPrompt } from "../session/system"
 import { Instance } from "../project/instance"
-import { mergeDeep } from "remeda"
-import { Log } from "../util/log"
-
-const log = Log.create({ service: "agent" })
 
 import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
+import { PermissionNext } from "@/permission/next"
+import { mergeDeep, pipe, sortBy, values } from "remeda"
 
 export namespace Agent {
   export const Info = z
@@ -23,19 +21,11 @@ export namespace Agent {
       mode: z.enum(["subagent", "primary", "all"]),
       native: z.boolean().optional(),
       hidden: z.boolean().optional(),
-      default: z.boolean().optional(),
       topP: z.number().optional(),
       temperature: z.number().optional(),
       color: z.string().optional(),
       order: z.number().int().optional(),
-      permission: z.object({
-        edit: Config.Permission,
-        bash: z.record(z.string(), Config.Permission),
-        skill: z.record(z.string(), Config.Permission),
-        webfetch: Config.Permission.optional(),
-        doom_loop: Config.Permission.optional(),
-        external_directory: Config.Permission.optional(),
-      }),
+      permission: PermissionNext.Ruleset,
       model: z
         .object({
           modelID: z.string(),
@@ -43,9 +33,8 @@ export namespace Agent {
         })
         .optional(),
       prompt: z.string().optional(),
-      tools: z.record(z.string(), z.boolean()),
       options: z.record(z.string(), z.any()),
-      maxSteps: z.number().int().positive().optional(),
+      steps: z.number().int().positive().optional(),
     })
     .meta({
       ref: "Agent",
@@ -54,73 +43,19 @@ export namespace Agent {
 
   const state = Instance.state(async () => {
     const cfg = await Config.get()
-    const defaultTools = cfg.tools ?? {}
-    const defaultPermission: Info["permission"] = {
-      edit: "allow",
-      bash: {
-        "*": "allow",
-      },
-      skill: {
-        "*": "allow",
-      },
-      webfetch: "allow",
+
+    const defaults = PermissionNext.fromConfig({
+      "*": "allow",
       doom_loop: "ask",
       external_directory: "ask",
-    }
-    const agentPermission = mergeAgentPermissions(defaultPermission, cfg.permission ?? {})
-
-    const planPermission = mergeAgentPermissions(
-      {
-        edit: "deny",
-        bash: {
-          "cut*": "allow",
-          "diff*": "allow",
-          "du*": "allow",
-          "file *": "allow",
-          "find * -delete*": "ask",
-          "find * -exec*": "ask",
-          "find * -fprint*": "ask",
-          "find * -fls*": "ask",
-          "find * -fprintf*": "ask",
-          "find * -ok*": "ask",
-          "find *": "allow",
-          "git diff*": "allow",
-          "git log*": "allow",
-          "git show*": "allow",
-          "git status*": "allow",
-          "git branch": "allow",
-          "git branch -v": "allow",
-          "grep*": "allow",
-          "head*": "allow",
-          "less*": "allow",
-          "ls*": "allow",
-          "more*": "allow",
-          "pwd*": "allow",
-          "rg*": "allow",
-          "sort --output=*": "ask",
-          "sort -o *": "ask",
-          "sort*": "allow",
-          "stat*": "allow",
-          "tail*": "allow",
-          "tree -o *": "ask",
-          "tree*": "allow",
-          "uniq*": "allow",
-          "wc*": "allow",
-          "whereis*": "allow",
-          "which*": "allow",
-          "*": "ask",
-        },
-        webfetch: "allow",
-      },
-      cfg.permission ?? {},
-    )
+    })
+    const user = PermissionNext.fromConfig(cfg.permission ?? {})
 
     const result: Record<string, Info> = {
       build: {
         name: "build",
-        tools: { ...defaultTools },
         options: {},
-        permission: agentPermission,
+        permission: PermissionNext.merge(defaults, user),
         mode: "primary",
         native: true,
         order: 1,
@@ -128,10 +63,16 @@ export namespace Agent {
       plan: {
         name: "plan",
         options: {},
-        permission: planPermission,
-        tools: {
-          ...defaultTools,
-        },
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            edit: {
+              "*": "deny",
+              ".opencode/plan/*.md": "allow",
+            },
+          }),
+          user,
+        ),
         mode: "primary",
         native: true,
         order: 2,
@@ -139,13 +80,15 @@ export namespace Agent {
       general: {
         name: "general",
         description: `General-purpose agent for researching complex questions and executing multi-step tasks. Use this agent to execute multiple units of work in parallel.`,
-        tools: {
-          todoread: false,
-          todowrite: false,
-          ...defaultTools,
-        },
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            todoread: "deny",
+            todowrite: "deny",
+          }),
+          user,
+        ),
         options: {},
-        permission: agentPermission,
         mode: "subagent",
         native: true,
         hidden: true,
@@ -153,17 +96,24 @@ export namespace Agent {
       },
       explore: {
         name: "explore",
-        tools: {
-          todoread: false,
-          todowrite: false,
-          edit: false,
-          write: false,
-          ...defaultTools,
-        },
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            webfetch: "allow",
+            websearch: "allow",
+            codesearch: "allow",
+            read: "allow",
+          }),
+          user,
+        ),
         description: `Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.`,
         prompt: PROMPT_EXPLORE,
         options: {},
-        permission: agentPermission,
         mode: "subagent",
         native: true,
         order: 11,
@@ -174,11 +124,14 @@ export namespace Agent {
         native: true,
         hidden: true,
         prompt: PROMPT_COMPACTION,
-        tools: {
-          "*": false,
-        },
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+          }),
+          user,
+        ),
         options: {},
-        permission: agentPermission,
         order: 20,
       },
       title: {
@@ -187,9 +140,14 @@ export namespace Agent {
         options: {},
         native: true,
         hidden: true,
-        permission: agentPermission,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+          }),
+          user,
+        ),
         prompt: PROMPT_TITLE,
-        tools: {},
         order: 21,
       },
       summary: {
@@ -198,12 +156,18 @@ export namespace Agent {
         options: {},
         native: true,
         hidden: true,
-        permission: agentPermission,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+          }),
+          user,
+        ),
         prompt: PROMPT_SUMMARY,
-        tools: {},
         order: 22,
       },
     }
+
     for (const [key, value] of Object.entries(cfg.agent ?? {})) {
       if (value.disable) {
         delete result[key]
@@ -214,76 +178,22 @@ export namespace Agent {
         item = result[key] = {
           name: key,
           mode: "all",
-          permission: agentPermission,
+          permission: PermissionNext.merge(defaults, user),
           options: {},
-          tools: {},
           native: false,
         }
-      const {
-        name,
-        model,
-        prompt,
-        tools,
-        description,
-        temperature,
-        top_p,
-        mode,
-        permission,
-        color,
-        maxSteps,
-        order,
-        ...extra
-      } = value
-      item.options = {
-        ...item.options,
-        ...extra,
-      }
-      if (model) item.model = Provider.parseModel(model)
-      if (prompt) item.prompt = prompt
-      if (tools)
-        item.tools = {
-          ...item.tools,
-          ...tools,
-        }
-      item.tools = {
-        ...defaultTools,
-        ...item.tools,
-      }
-      if (description) item.description = description
-      if (temperature != undefined) item.temperature = temperature
-      if (top_p != undefined) item.topP = top_p
-      if (mode) item.mode = mode
-      if (color) item.color = color
-      if (order != undefined) item.order = order
-      // just here for consistency & to prevent it from being added as an option
-      if (name) item.name = name
-      if (maxSteps != undefined) item.maxSteps = maxSteps
-
-      if (permission ?? cfg.permission) {
-        item.permission = mergeAgentPermissions(cfg.permission ?? {}, permission ?? {})
-      }
+      if (value.model) item.model = Provider.parseModel(value.model)
+      item.prompt = value.prompt ?? item.prompt
+      item.description = value.description ?? item.description
+      item.temperature = value.temperature ?? item.temperature
+      item.topP = value.top_p ?? item.topP
+      item.mode = value.mode ?? item.mode
+      item.color = value.color ?? item.color
+      item.name = value.options?.name ?? item.name
+      item.steps = value.steps ?? item.steps
+      item.options = mergeDeep(item.options, value.options ?? {})
+      item.permission = PermissionNext.merge(item.permission, PermissionNext.fromConfig(value.permission ?? {}))
     }
-
-    // Mark the default agent
-    const defaultName = cfg.default_agent ?? "build"
-    const defaultCandidate = result[defaultName]
-    if (defaultCandidate && defaultCandidate.mode !== "subagent") {
-      defaultCandidate.default = true
-    } else {
-      // Fall back to "build" if configured default is invalid
-      if (result["build"]) {
-        result["build"].default = true
-      }
-    }
-
-    const hasPrimaryAgents = Object.values(result).filter((a) => a.mode !== "subagent" && !a.hidden).length > 0
-    if (!hasPrimaryAgents) {
-      throw new Config.InvalidError({
-        path: "config",
-        message: "No primary agents are available. Please configure at least one agent with mode 'primary' or 'all'.",
-      })
-    }
-
     return result
   })
 
@@ -292,22 +202,16 @@ export namespace Agent {
   }
 
   export async function list() {
-    return state().then((x) => {
-      const agents = Object.values(x)
-      agents.sort((a, b) => {
-        const orderA = a.order ?? Number.MAX_SAFE_INTEGER
-        const orderB = b.order ?? Number.MAX_SAFE_INTEGER
-        if (orderA !== orderB) return orderA - orderB
-        return a.name.localeCompare(b.name)
-      })
-      return agents
-    })
+    const cfg = await Config.get()
+    return pipe(
+      await state(),
+      values(),
+      sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"]),
+    )
   }
 
-  export async function defaultAgent(): Promise<string> {
-    const agents = await state()
-    const defaultCandidate = Object.values(agents).find((a) => a.default)
-    return defaultCandidate?.name ?? "build"
+  export async function defaultAgent() {
+    return state().then((x) => Object.keys(x)[0])
   }
 
   export async function generate(input: { description: string; model?: { providerID: string; modelID: string } }) {
@@ -347,71 +251,4 @@ export namespace Agent {
     })
     return result.object
   }
-}
-
-function mergeAgentPermissions(basePermission: any, overridePermission: any): Agent.Info["permission"] {
-  if (typeof basePermission.bash === "string") {
-    basePermission.bash = {
-      "*": basePermission.bash,
-    }
-  }
-  if (typeof overridePermission.bash === "string") {
-    overridePermission.bash = {
-      "*": overridePermission.bash,
-    }
-  }
-
-  if (typeof basePermission.skill === "string") {
-    basePermission.skill = {
-      "*": basePermission.skill,
-    }
-  }
-  if (typeof overridePermission.skill === "string") {
-    overridePermission.skill = {
-      "*": overridePermission.skill,
-    }
-  }
-  const merged = mergeDeep(basePermission ?? {}, overridePermission ?? {}) as any
-  let mergedBash
-  if (merged.bash) {
-    if (typeof merged.bash === "string") {
-      mergedBash = {
-        "*": merged.bash,
-      }
-    } else if (typeof merged.bash === "object") {
-      mergedBash = mergeDeep(
-        {
-          "*": "allow",
-        },
-        merged.bash,
-      )
-    }
-  }
-
-  let mergedSkill
-  if (merged.skill) {
-    if (typeof merged.skill === "string") {
-      mergedSkill = {
-        "*": merged.skill,
-      }
-    } else if (typeof merged.skill === "object") {
-      mergedSkill = mergeDeep(
-        {
-          "*": "allow",
-        },
-        merged.skill,
-      )
-    }
-  }
-
-  const result: Agent.Info["permission"] = {
-    edit: merged.edit ?? "allow",
-    webfetch: merged.webfetch ?? "allow",
-    bash: mergedBash ?? { "*": "allow" },
-    skill: mergedSkill ?? { "*": "allow" },
-    doom_loop: merged.doom_loop,
-    external_directory: merged.external_directory,
-  }
-
-  return result
 }

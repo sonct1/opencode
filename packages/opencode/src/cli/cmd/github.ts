@@ -158,6 +158,29 @@ export function parseGitHubRemote(url: string): { owner: string; repo: string } 
   return { owner: match[1], repo: match[2] }
 }
 
+/**
+ * Extracts displayable text from assistant response parts.
+ * Returns null for tool-only or reasoning-only responses (signals summary needed).
+ * Throws for truly unusable responses (empty, step-start only, etc.).
+ */
+export function extractResponseText(parts: MessageV2.Part[]): string | null {
+  // Priority 1: Look for text parts
+  const textPart = parts.findLast((p) => p.type === "text")
+  if (textPart) return textPart.text
+
+  // Priority 2: Reasoning-only - return null to signal summary needed
+  const reasoningPart = parts.findLast((p) => p.type === "reasoning")
+  if (reasoningPart) return null
+
+  // Priority 3: Tool-only - return null to signal summary needed
+  const toolParts = parts.filter((p) => p.type === "tool" && p.state.status === "completed")
+  if (toolParts.length > 0) return null
+
+  // No usable parts - throw with debug info
+  const partTypes = parts.map((p) => p.type).join(", ") || "none"
+  throw new Error(`Failed to parse response. Part types found: [${partTypes}]`)
+}
+
 export const GithubCommand = cmd({
   command: "github",
   describe: "manage GitHub agent",
@@ -325,7 +348,7 @@ export const GithubInstallCommand = cmd({
               }
 
               retries++
-              await new Promise((resolve) => setTimeout(resolve, 1000))
+              await Bun.sleep(1000)
             } while (true)
 
             s.stop("Installed GitHub app")
@@ -373,7 +396,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run opencode
-        uses: sst/opencode/github@latest${envStr}
+        uses: anomalyco/opencode/github@latest${envStr}
         with:
           model: ${provider}/${model}`,
             )
@@ -890,10 +913,41 @@ export const GithubRunCommand = cmd({
           )
         }
 
-        const match = result.parts.findLast((p) => p.type === "text")
-        if (!match) throw new Error("Failed to parse the text response")
+        const text = extractResponseText(result.parts)
+        if (text) return text
 
-        return match.text
+        // No text part (tool-only or reasoning-only) - ask agent to summarize
+        console.log("Requesting summary from agent...")
+        const summary = await SessionPrompt.prompt({
+          sessionID: session.id,
+          messageID: Identifier.ascending("message"),
+          model: {
+            providerID,
+            modelID,
+          },
+          tools: { "*": false }, // Disable all tools to force text response
+          parts: [
+            {
+              id: Identifier.ascending("part"),
+              type: "text",
+              text: "Summarize the actions (tool calls & reasoning) you did for the user in 1-2 sentences.",
+            },
+          ],
+        })
+
+        if (summary.info.role === "assistant" && summary.info.error) {
+          console.error(summary.info)
+          throw new Error(
+            `${summary.info.error.name}: ${"message" in summary.info.error ? summary.info.error.message : ""}`,
+          )
+        }
+
+        const summaryText = extractResponseText(summary.parts)
+        if (!summaryText) {
+          throw new Error("Failed to get summary from agent")
+        }
+
+        return summaryText
       }
 
       async function getOidcToken() {
@@ -940,12 +994,16 @@ export const GithubRunCommand = cmd({
 
         console.log("Configuring git...")
         const config = "http.https://github.com/.extraheader"
-        const ret = await $`git config --local --get ${config}`
-        gitConfig = ret.stdout.toString().trim()
+        // actions/checkout@v6 no longer stores credentials in .git/config,
+        // so this may not exist - use nothrow() to handle gracefully
+        const ret = await $`git config --local --get ${config}`.nothrow()
+        if (ret.exitCode === 0) {
+          gitConfig = ret.stdout.toString().trim()
+          await $`git config --local --unset-all ${config}`
+        }
 
         const newCredentials = Buffer.from(`x-access-token:${appToken}`, "utf8").toString("base64")
 
-        await $`git config --local --unset-all ${config}`
         await $`git config --local ${config} "AUTHORIZATION: basic ${newCredentials}"`
         await $`git config --global user.name "${AGENT_USERNAME}"`
         await $`git config --global user.email "${AGENT_USERNAME}@users.noreply.github.com"`
