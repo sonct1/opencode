@@ -27,6 +27,7 @@ export namespace Agent {
       topP: z.number().optional(),
       temperature: z.number().optional(),
       color: z.string().optional(),
+      order: z.number().int().optional(),
       permission: z.object({
         edit: Config.Permission,
         bash: z.record(z.string(), Config.Permission),
@@ -122,6 +123,7 @@ export namespace Agent {
         permission: agentPermission,
         mode: "primary",
         native: true,
+        order: 1,
       },
       plan: {
         name: "plan",
@@ -132,6 +134,7 @@ export namespace Agent {
         },
         mode: "primary",
         native: true,
+        order: 2,
       },
       general: {
         name: "general",
@@ -146,6 +149,7 @@ export namespace Agent {
         mode: "subagent",
         native: true,
         hidden: true,
+        order: 10,
       },
       explore: {
         name: "explore",
@@ -162,6 +166,7 @@ export namespace Agent {
         permission: agentPermission,
         mode: "subagent",
         native: true,
+        order: 11,
       },
       compaction: {
         name: "compaction",
@@ -174,6 +179,7 @@ export namespace Agent {
         },
         options: {},
         permission: agentPermission,
+        order: 20,
       },
       title: {
         name: "title",
@@ -184,6 +190,7 @@ export namespace Agent {
         permission: agentPermission,
         prompt: PROMPT_TITLE,
         tools: {},
+        order: 21,
       },
       summary: {
         name: "summary",
@@ -194,6 +201,7 @@ export namespace Agent {
         permission: agentPermission,
         prompt: PROMPT_SUMMARY,
         tools: {},
+        order: 22,
       },
     }
     for (const [key, value] of Object.entries(cfg.agent ?? {})) {
@@ -223,6 +231,7 @@ export namespace Agent {
         permission,
         color,
         maxSteps,
+        order,
         ...extra
       } = value
       item.options = {
@@ -245,6 +254,7 @@ export namespace Agent {
       if (top_p != undefined) item.topP = top_p
       if (mode) item.mode = mode
       if (color) item.color = color
+      if (order != undefined) item.order = order
       // just here for consistency & to prevent it from being added as an option
       if (name) item.name = name
       if (maxSteps != undefined) item.maxSteps = maxSteps
@@ -282,7 +292,16 @@ export namespace Agent {
   }
 
   export async function list() {
-    return state().then((x) => Object.values(x))
+    return state().then((x) => {
+      const agents = Object.values(x)
+      agents.sort((a, b) => {
+        const orderA = a.order ?? Number.MAX_SAFE_INTEGER
+        const orderB = b.order ?? Number.MAX_SAFE_INTEGER
+        if (orderA !== orderB) return orderA - orderB
+        return a.name.localeCompare(b.name)
+      })
+      return agents
+    })
   }
 
   export async function defaultAgent(): Promise<string> {

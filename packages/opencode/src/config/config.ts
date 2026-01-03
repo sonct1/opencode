@@ -412,6 +412,7 @@ export namespace Config {
         .regex(/^#[0-9a-fA-F]{6}$/, "Invalid hex color format")
         .optional()
         .describe("Hex color code for the agent (e.g., #FF5733)"),
+      order: z.number().int().optional().describe("Order for cycling through agents (lower number = earlier in cycle)"),
       maxSteps: z
         .number()
         .int()
