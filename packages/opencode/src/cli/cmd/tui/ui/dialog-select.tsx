@@ -104,14 +104,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   createEffect(
     on([() => store.filter, () => props.current], ([filter, current]) => {
       // Always start at index 0, regardless of filter or current model
-      if (filter.length > 0) {
-        setStore("selected", 0)
-      } else if (current) {
-        const currentIndex = flat().findIndex((opt) => isDeepEqual(opt.value, current))
-        if (currentIndex >= 0) {
-          setStore("selected", currentIndex)
-        }
-      }
+      // Son.ct1
+      setStore("selected", 0)
       scroll?.scrollTo(0)
     }),
   )

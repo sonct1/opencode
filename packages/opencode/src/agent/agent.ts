@@ -24,7 +24,6 @@ export namespace Agent {
       topP: z.number().optional(),
       temperature: z.number().optional(),
       color: z.string().optional(),
-      order: z.number().int().optional(),
       permission: PermissionNext.Ruleset,
       model: z
         .object({
@@ -58,7 +57,6 @@ export namespace Agent {
         permission: PermissionNext.merge(defaults, user),
         mode: "primary",
         native: true,
-        order: 1,
       },
       plan: {
         name: "plan",
@@ -75,7 +73,6 @@ export namespace Agent {
         ),
         mode: "primary",
         native: true,
-        order: 2,
       },
       general: {
         name: "general",
@@ -92,7 +89,6 @@ export namespace Agent {
         mode: "subagent",
         native: true,
         hidden: true,
-        order: 10,
       },
       explore: {
         name: "explore",
@@ -116,7 +112,6 @@ export namespace Agent {
         options: {},
         mode: "subagent",
         native: true,
-        order: 11,
       },
       compaction: {
         name: "compaction",
@@ -132,7 +127,6 @@ export namespace Agent {
           user,
         ),
         options: {},
-        order: 20,
       },
       title: {
         name: "title",
@@ -148,7 +142,6 @@ export namespace Agent {
           user,
         ),
         prompt: PROMPT_TITLE,
-        order: 21,
       },
       summary: {
         name: "summary",
@@ -164,7 +157,6 @@ export namespace Agent {
           user,
         ),
         prompt: PROMPT_SUMMARY,
-        order: 22,
       },
     }
 
